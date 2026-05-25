@@ -12,7 +12,7 @@ const LandingPage = () => {
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-ink-950 text-white relative overflow-x-hidden">
+    <div className="min-h-screen w-full bg-ink-950 text-white" style={{width:'100%',maxWidth:'100%',overflowX:'hidden'}}>
       {/* HEADER */}
       <header className="absolute top-0 left-0 right-0 z-30 w-full">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 h-20 flex items-center justify-between">
@@ -43,13 +43,13 @@ const LandingPage = () => {
       </header>
 
       {/* HERO */}
-      <section className="relative pt-32 pb-24 lg:pt-44 lg:pb-32">
+      <section className="relative w-full pt-32 pb-24 lg:pt-44 lg:pb-32">
         <div
           className="absolute inset-0 z-0 opacity-30 bg-cover bg-center"
           style={{ backgroundImage: `url(${HERO_BG})` }}
         />
         <div className="absolute inset-0 z-10 bg-gradient-to-b from-ink-950/40 via-ink-950/70 to-ink-950" />
-        <div className="relative z-20 max-w-7xl mx-auto px-4 lg:px-8 grid lg:grid-cols-12 gap-10 items-center min-h-0">
+        <div className="relative z-20 max-w-7xl mx-auto px-4 lg:px-8 grid lg:grid-cols-12 gap-10 items-center">
           <div className="lg:col-span-7">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-brand/30 bg-brand/10 rounded-sm mb-8 fade-up">
               <span className="h-1.5 w-1.5 bg-brand rounded-full pulse-dot" />
@@ -110,7 +110,7 @@ const LandingPage = () => {
       </section>
 
       {/* HOW IT WORKS */}
-      <section className="relative py-20 border-t border-white/5">
+      <section className="relative w-full py-20 border-t border-white/5">
         <div className="max-w-7xl mx-auto px-4 lg:px-8">
           <div className="mb-12">
             <div className="font-mono-label text-[11px] text-brand mb-3">— Comment ça marche</div>
@@ -154,7 +154,7 @@ const LandingPage = () => {
       </section>
 
       {/* TRUST */}
-      <section className="relative py-20 border-t border-white/5">
+      <section className="relative w-full py-20 border-t border-white/5">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 grid lg:grid-cols-2 gap-12 items-center">
           <div>
             <ShieldCheck size={32} className="text-brand mb-6" />
@@ -189,7 +189,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      <section className="relative py-20 border-t border-white/5">
+      <section className="relative w-full py-20 border-t border-white/5">
         <div className="max-w-4xl mx-auto px-4 lg:px-8 text-center">
           <h2 className="font-display font-black text-3xl sm:text-5xl tracking-tight mb-6">
             Prêt à <span className="metallic-text">grimper</span> ?
@@ -206,7 +206,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      <footer className="border-t border-white/5 py-8 text-center text-[11px] text-slate-600 font-mono-label">
+      <footer className="w-full border-t border-white/5 py-8 text-center text-[11px] text-slate-600 font-mono-label">
         © {new Date().getFullYear()} Boosting Service · <Link to="/cgu" className="hover:text-white">CGU</Link>
       </footer>
     </div>

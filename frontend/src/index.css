@@ -5,6 +5,11 @@
 @tailwind components;
 @tailwind utilities;
 
+#root {
+  width: 100% !important;
+  max-width: 100vw !important;
+}
+
 /* Ajouter ces resets CRITIQUES après les tailwind directives */
 *, *::before, *::after {
   box-sizing: border-box;

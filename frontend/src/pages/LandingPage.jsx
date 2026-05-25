@@ -191,13 +191,13 @@ const LandingPage = () => {
               {
                 title: "Rocket League",
                 tag: "ROCKET LEAGUE",
-                desc: "Boost en 1v1, 2v2, 3v2, Hoops, Snow Day. Du Bronze au SSL.",
+                desc: "Boost en 1v1, 2v2, 3v3, Hoops, SnowDay, Rumble, Heatseeker, Dropshot. Du Bronze au SSL.",
                 modes: ["Compétitif", "Placements", "Coaching"],
               },
               {
                 title: "Valorant",
                 tag: "VALORANT",
-                desc: "Boost solo / duo. Toutes régions, placements, win boost.",
+                desc: "Boost Solo Q / Duo Q. Toutes régions, placements, win boost.",
                 modes: ["Solo Q", "Duo Q", "Placements"],
               },
             ].map((g) => (

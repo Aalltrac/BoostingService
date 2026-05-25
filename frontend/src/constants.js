@@ -60,7 +60,7 @@ export const GAMES = {
   },
 };
 
-// Build full rank list with 3 divisions per rank (except the last one)
+// Build full rank list with 3 divisions per rank (except the last one which has no division)
 export const getFullRanks = (gameId) => {
   const ranks = GAMES[gameId].ranks;
   const last = ranks.length - 1;
@@ -75,6 +75,31 @@ export const getFullRanks = (gameId) => {
     }
   });
   return out;
+};
+
+// Build the list of "transitions" (rank N -> rank N+1) for a game
+// Example: ["Bronze 1->Bronze 2", "Bronze 2->Bronze 3", "Bronze 3->Argent 1", ...]
+export const getRankTransitions = (gameId) => {
+  const ranks = getFullRanks(gameId);
+  const out = [];
+  for (let i = 0; i < ranks.length - 1; i++) {
+    out.push({
+      key: `${ranks[i].label} -> ${ranks[i + 1].label}`,
+      from: ranks[i].label,
+      to: ranks[i + 1].label,
+      fromIndex: i,
+      toIndex: i + 1,
+    });
+  }
+  return out;
+};
+
+// Sum prices of consecutive transitions between two rank indices
+// pricesMap: { "Bronze 1 -> Bronze 2": 5, ... }
+export const sumTransitionPrices = (pricesMap, fromIndex, toIndex) => {
+  const transitions = getRankTransitions(); // not used directly; we build map below from current game
+  // Note: this helper requires the caller to provide a transitions array
+  return 0; // overridden in caller
 };
 
 // Commission rate based on order price

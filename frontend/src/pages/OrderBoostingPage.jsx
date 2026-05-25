@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   doc,
@@ -12,16 +12,17 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../AuthContext";
-import { GAMES, getFullRanks, CREATOR_UID } from "../constants";
+import { GAMES, getFullRanks, getRankTransitions } from "../constants";
 import { toast } from "sonner";
-import { ArrowRight, Lock, Mail, KeyRound } from "lucide-react";
+import { ArrowRight, Lock, Mail, KeyRound, AlertTriangle } from "lucide-react";
 
 const OrderBoostingPage = () => {
   const { gameId, boosterUid } = useParams();
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const game = GAMES[gameId];
-  const ranks = game ? getFullRanks(gameId) : [];
+  const ranks = useMemo(() => (game ? getFullRanks(gameId) : []), [game, gameId]);
+  const transitions = useMemo(() => (game ? getRankTransitions(gameId) : []), [game, gameId]);
 
   const [step, setStep] = useState(1);
   const [mode, setMode] = useState(game?.modes[0] || "default");
@@ -50,15 +51,47 @@ const OrderBoostingPage = () => {
 
   if (!game) return null;
 
-  const pricePerRank = boosterOffer?.pricePerRank || 0;
-  const ranksJump = Math.max(0, rankTo - rankFrom);
-  const totalPrice = boosterOffer?.type === "free" ? 0 : Number(pricePerRank) * ranksJump;
+  const isPaid = boosterOffer?.type === "paid";
+  const priceTableForMode = boosterOffer?.priceTable?.[game.modes.length ? mode : "default"] || {};
+
+  // Compute total by summing transition prices from rankFrom..rankTo - 1
+  const { totalPrice, missingTransitions } = useMemo(() => {
+    if (!isPaid) return { totalPrice: 0, missingTransitions: [] };
+    let total = 0;
+    const missing = [];
+    for (let i = rankFrom; i < rankTo; i++) {
+      const t = transitions.find((tr) => tr.fromIndex === i);
+      if (!t) continue;
+      const p = priceTableForMode[t.key];
+      if (p === undefined || p === "" || p === null) {
+        missing.push(t.key);
+      } else {
+        total += Number(p) || 0;
+      }
+    }
+    return { totalPrice: total, missingTransitions: missing };
+  }, [isPaid, rankFrom, rankTo, priceTableForMode, transitions]);
+
+  // Check max rank constraint
+  const maxRankLabel =
+    boosterOffer?.maxRankPerMode?.[game.modes.length ? mode : "default"];
+  const maxRankIndex = maxRankLabel
+    ? ranks.findIndex((r) => r.label === maxRankLabel)
+    : -1;
+  const exceedsMax = maxRankIndex >= 0 && rankTo > maxRankIndex;
 
   const placeOrder = async (e) => {
     e?.preventDefault?.();
+    if (isPaid && missingTransitions.length > 0) {
+      toast.error("Certaines transitions ne sont pas proposées par ce boosteur.");
+      return;
+    }
+    if (exceedsMax) {
+      toast.error(`Ce boosteur ne dépasse pas ${maxRankLabel}.`);
+      return;
+    }
     setBusy(true);
     try {
-      // Create conversation
       const convRef = await addDoc(collection(db, "conversations"), {
         participants: [user.uid, boosterUid],
         clientUid: user.uid,
@@ -70,7 +103,6 @@ const OrderBoostingPage = () => {
         lastMessage: "Commande créée",
       });
 
-      // Create order
       const orderRef = await addDoc(collection(db, "orders"), {
         clientUid: user.uid,
         clientName: profile?.displayName || user.email,
@@ -89,13 +121,12 @@ const OrderBoostingPage = () => {
         createdAt: serverTimestamp(),
       });
 
-      // Initial system message with order summary + credentials
       const summary = `Nouvelle commande de boosting !
 Jeu : ${game.name}${game.modes.length ? `
 Mode : ${mode}` : ""}
 Rank actuel : ${ranks[rankFrom].label}
 Rank souhaité : ${ranks[rankTo].label}
-Prix : ${totalPrice}€
+Prix : ${isPaid ? `${totalPrice}€` : "Gratuit (don)"}
 
 Identifiants du compte :
 Email : ${accEmail}
@@ -129,8 +160,11 @@ Mot de passe : ${accPassword}`;
         Commande de <span className="text-brand">boost</span>
       </h1>
       <p className="text-slate-400 mb-10">
-        Boosteur sélectionné : <span className="text-white font-semibold">{boosterUser?.displayName || "..."}</span>
-        {boosterOffer?.type === "free" && <span className="ml-2 font-mono-label text-[10px] text-green-400">GRATUIT · DON</span>}
+        Boosteur sélectionné :{" "}
+        <span className="text-white font-semibold">{boosterUser?.displayName || "..."}</span>
+        {boosterOffer?.type === "free" && (
+          <span className="ml-2 font-mono-label text-[10px] text-green-400">GRATUIT · DON</span>
+        )}
       </p>
 
       {/* STEPS */}
@@ -183,9 +217,7 @@ Mot de passe : ${accPassword}`;
                 className="w-full bg-ink-950 border border-white/10 focus:border-brand focus:outline-none px-3 py-3 text-sm rounded-sm"
               >
                 {ranks.map((r) => (
-                  <option key={r.label} value={r.index}>
-                    {r.label}
-                  </option>
+                  <option key={r.label} value={r.index}>{r.label}</option>
                 ))}
               </select>
             </div>
@@ -197,32 +229,53 @@ Mot de passe : ${accPassword}`;
                 data-testid="rank-to-select"
                 className="w-full bg-ink-950 border border-white/10 focus:border-brand focus:outline-none px-3 py-3 text-sm rounded-sm"
               >
-                {ranks
-                  .filter((r) => r.index > rankFrom)
-                  .map((r) => (
-                    <option key={r.label} value={r.index}>
-                      {r.label}
-                    </option>
-                  ))}
+                {ranks.filter((r) => r.index > rankFrom).map((r) => (
+                  <option key={r.label} value={r.index}>{r.label}</option>
+                ))}
               </select>
             </div>
           </div>
 
+          {isPaid && (
+            <div className="border border-white/5 bg-ink-950 p-4 rounded-sm">
+              <div className="font-mono-label text-[10px] text-slate-500 mb-3">Détail du calcul</div>
+              <div className="space-y-1 text-xs max-h-40 overflow-y-auto">
+                {Array.from({ length: rankTo - rankFrom }).map((_, k) => {
+                  const t = transitions.find((tr) => tr.fromIndex === rankFrom + k);
+                  if (!t) return null;
+                  const p = priceTableForMode[t.key];
+                  const has = p !== undefined && p !== "" && p !== null;
+                  return (
+                    <div key={t.key} className={`flex justify-between ${has ? "text-slate-300" : "text-red-400"}`}>
+                      <span>{t.key}</span>
+                      <span className="font-semibold">{has ? `${p}€` : "indisponible"}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {(exceedsMax || missingTransitions.length > 0) && (
+            <div className="flex items-start gap-2 bg-red-500/5 border border-red-500/30 p-3 rounded-sm text-xs text-red-300">
+              <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+              <div>
+                {exceedsMax && <>Ce boosteur ne dépasse pas <b>{maxRankLabel}</b> sur ce mode. </>}
+                {missingTransitions.length > 0 && <>Certaines transitions ne sont pas proposées par ce boosteur.</>}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between pt-4 border-t border-white/5">
             <div>
-              <div className="font-mono-label text-[10px] text-slate-500">Prix estimé</div>
+              <div className="font-mono-label text-[10px] text-slate-500">Prix total</div>
               <div className="font-display font-black text-3xl text-brand mt-1">
-                {boosterOffer?.type === "free" ? "Gratuit" : `${totalPrice}€`}
+                {!isPaid ? "Gratuit" : `${totalPrice}€`}
               </div>
-              {boosterOffer?.type !== "free" && (
-                <div className="text-xs text-slate-500 mt-1">
-                  {ranksJump} divisions × {pricePerRank}€
-                </div>
-              )}
             </div>
             <button
               onClick={() => setStep(2)}
-              disabled={rankFrom >= rankTo}
+              disabled={rankFrom >= rankTo || exceedsMax || (isPaid && missingTransitions.length > 0)}
               data-testid="step-1-next"
               className="bg-brand hover:bg-brand-hover px-6 py-3 font-bold rounded-sm purple-glow disabled:opacity-40 inline-flex items-center gap-2"
             >
@@ -239,8 +292,7 @@ Mot de passe : ${accPassword}`;
             <div>
               <div className="font-semibold text-sm">Identifiants requis</div>
               <p className="text-xs text-slate-400 mt-1">
-                Tes identifiants seront transmis uniquement au boosteur via le chat sécurisé. Le créateur de la
-                plateforme conserve un accès en cas de litige.
+                Tes identifiants seront transmis uniquement au boosteur via le chat sécurisé. Le créateur conserve un accès en cas de litige.
               </p>
             </div>
           </div>
@@ -248,38 +300,17 @@ Mot de passe : ${accPassword}`;
             <label className="font-mono-label text-[10px] text-slate-400 block mb-2">
               <Mail size={11} className="inline mr-1" /> Email du compte
             </label>
-            <input
-              type="text"
-              required
-              value={accEmail}
-              onChange={(e) => setAccEmail(e.target.value)}
-              data-testid="account-email-input"
-              className="w-full bg-ink-950 border border-white/10 focus:border-brand focus:outline-none px-3 py-3 text-sm rounded-sm"
-            />
+            <input type="text" required value={accEmail} onChange={(e) => setAccEmail(e.target.value)} data-testid="account-email-input" className="w-full bg-ink-950 border border-white/10 focus:border-brand focus:outline-none px-3 py-3 text-sm rounded-sm" />
           </div>
           <div>
             <label className="font-mono-label text-[10px] text-slate-400 block mb-2">
               <KeyRound size={11} className="inline mr-1" /> Mot de passe du compte
             </label>
-            <input
-              type="text"
-              required
-              value={accPassword}
-              onChange={(e) => setAccPassword(e.target.value)}
-              data-testid="account-password-input"
-              className="w-full bg-ink-950 border border-white/10 focus:border-brand focus:outline-none px-3 py-3 text-sm rounded-sm"
-            />
+            <input type="text" required value={accPassword} onChange={(e) => setAccPassword(e.target.value)} data-testid="account-password-input" className="w-full bg-ink-950 border border-white/10 focus:border-brand focus:outline-none px-3 py-3 text-sm rounded-sm" />
           </div>
           <div className="flex justify-between pt-4 border-t border-white/5">
-            <button onClick={() => setStep(1)} className="px-4 py-2 text-sm text-slate-400 hover:text-white" data-testid="step-2-back">
-              ← Précédent
-            </button>
-            <button
-              onClick={() => setStep(3)}
-              disabled={!accEmail || !accPassword}
-              data-testid="step-2-next"
-              className="bg-brand hover:bg-brand-hover px-6 py-3 font-bold rounded-sm purple-glow disabled:opacity-40 inline-flex items-center gap-2"
-            >
+            <button onClick={() => setStep(1)} className="px-4 py-2 text-sm text-slate-400 hover:text-white" data-testid="step-2-back">← Précédent</button>
+            <button onClick={() => setStep(3)} disabled={!accEmail || !accPassword} data-testid="step-2-next" className="bg-brand hover:bg-brand-hover px-6 py-3 font-bold rounded-sm purple-glow disabled:opacity-40 inline-flex items-center gap-2">
               Suivant <ArrowRight size={16} />
             </button>
           </div>
@@ -295,18 +326,11 @@ Mot de passe : ${accPassword}`;
             <Item k="Rank actuel" v={ranks[rankFrom].label} />
             <Item k="Rank souhaité" v={ranks[rankTo].label} />
             <Item k="Boosteur" v={boosterUser?.displayName || "..."} />
-            <Item k="Prix" v={boosterOffer?.type === "free" ? "Gratuit (don)" : `${totalPrice}€`} accent />
+            <Item k="Prix" v={!isPaid ? "Gratuit (don)" : `${totalPrice}€`} accent />
           </div>
           <div className="flex justify-between pt-6 border-t border-white/5">
-            <button onClick={() => setStep(2)} className="px-4 py-2 text-sm text-slate-400 hover:text-white" data-testid="step-3-back">
-              ← Précédent
-            </button>
-            <button
-              onClick={placeOrder}
-              disabled={busy}
-              data-testid="confirm-order-btn"
-              className="bg-brand hover:bg-brand-hover px-8 py-3 font-bold rounded-sm purple-glow disabled:opacity-50"
-            >
+            <button onClick={() => setStep(2)} className="px-4 py-2 text-sm text-slate-400 hover:text-white" data-testid="step-3-back">← Précédent</button>
+            <button onClick={placeOrder} disabled={busy} data-testid="confirm-order-btn" className="bg-brand hover:bg-brand-hover px-8 py-3 font-bold rounded-sm purple-glow disabled:opacity-50">
               {busy ? "Envoi…" : "Confirmer la commande"}
             </button>
           </div>
@@ -319,9 +343,7 @@ Mot de passe : ${accPassword}`;
 const Item = ({ k, v, accent }) => (
   <div className="border border-white/5 p-4 rounded-sm">
     <div className="font-mono-label text-[10px] text-slate-500">{k}</div>
-    <div className={`text-base mt-1 ${accent ? "font-display font-black text-brand text-2xl" : "font-semibold"}`}>
-      {v}
-    </div>
+    <div className={`text-base mt-1 ${accent ? "font-display font-black text-brand text-2xl" : "font-semibold"}`}>{v}</div>
   </div>
 );
 

@@ -36,6 +36,7 @@ body {
     radial-gradient(circle at 20% 0%, rgba(157, 76, 221, 0.08), transparent 40%),
     radial-gradient(circle at 80% 100%, rgba(157, 76, 221, 0.06), transparent 50%);
   background-attachment: fixed;
+  min-width: 100vw;
 }
 
 .font-display {

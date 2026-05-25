@@ -1,0 +1,142 @@
+{
+  "theme_and_archetype": {
+    "domain": "Gaming/Esports Boosting Marketplace",
+    "theme": "DARK",
+    "archetype": "7 (Electric & Neon)",
+    "reasoning": "Gaming/Esports platform requires a high-energy, dark mode look. Using Deep Void Black combined with the requested Electric Purple and Metallic Silver accents. Avoid pure black to reduce eye strain, favoring deep charcoal. Emphasizing cyber/esports aesthetic without generic purple/white AI gradients."
+  },
+  "typography": {
+    "primary_font": "Unbounded",
+    "primary_font_source": "Google Fonts",
+    "secondary_font": "Outfit",
+    "secondary_font_source": "Google Fonts",
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tighter font-black",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-bold",
+      "h3": "text-xl sm:text-2xl tracking-tight font-semibold",
+      "body": "text-base leading-relaxed font-normal text-slate-300",
+      "small_labels": "text-xs tracking-[0.2em] uppercase text-slate-400 font-semibold"
+    },
+    "rules": "Never use Inter or Space Grotesk. Use Unbounded for Headings to provide a modern, wide gaming feel. Outfit for readable but technical body copy. Ensure APCA contrast ratio."
+  },
+  "colors": {
+    "background": {
+      "base": "#050507",
+      "surface": "#0A0A0E",
+      "surface_elevated": "#12121A"
+    },
+    "brand": {
+      "primary": "#9D4CDD",
+      "primary_hover": "#B26CEB",
+      "secondary": "#E2E8F0",
+      "accent": "#FACC15"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#94A3B8",
+      "muted": "#64748B"
+    },
+    "borders": {
+      "subtle": "rgba(157, 76, 221, 0.2)",
+      "strong": "rgba(157, 76, 221, 0.5)",
+      "metallic": "rgba(226, 232, 240, 0.15)"
+    },
+    "rules": "Avoid AI-slop purple gradients on white. Do not use Teal (#1B93A4). Use pure electric purple sparingly as an accent on dark backgrounds. Let silver/metallic tones act as secondary interactive colors."
+  },
+  "layout": {
+    "marketing_pages": {
+      "grid": "MODE A: The Tetris Grid (Asymmetrical)",
+      "spacing": "Generous (p-8, p-16, gap-12)",
+      "hero": "Max overlay opacity bg-black/40. Use metallic_bg or esports_void as hero background with blending."
+    },
+    "dashboard_and_marketplace": {
+      "grid": "MODE B: Control Room Grid (Dense, grid-cols-1 md:grid-cols-3 lg:grid-cols-4)",
+      "spacing": "Tight (p-4, p-6, gap-6)",
+      "cards": "Subtle roundness (rounded-none or max rounded-md). 1px subtle metallic border. Cardless approach preferred for dense data."
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#9D4CDD] hover:bg-[#B26CEB] text-white rounded-none px-6 py-3 font-semibold transition-all shadow-[0_0_15px_rgba(157,76,221,0.3)] hover:shadow-[0_0_25px_rgba(157,76,221,0.6)]",
+      "secondary": "bg-transparent border border-slate-700 hover:border-slate-500 text-slate-200 rounded-none px-6 py-3 font-semibold transition-colors",
+      "metallic": "bg-gradient-to-b from-slate-300 to-slate-500 text-black hover:from-white hover:to-slate-300 rounded-none px-6 py-3 font-bold transition-all"
+    },
+    "cards": {
+      "default": "bg-[#0A0A0E] border border-white/10 rounded-md overflow-hidden hover:border-purple-500/30 transition-colors",
+      "game_card": "Relative positioning, image background with bg-black/50 overlay, strong typography for game title, hover effect scales image inside overflow-hidden."
+    },
+    "forms": {
+      "inputs": "bg-[#050507] border border-slate-800 focus:border-[#9D4CDD] focus:ring-1 focus:ring-[#9D4CDD] text-white rounded-none w-full",
+      "labels": "text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 block"
+    },
+    "navigation": {
+      "header": "Sticky top-0 z-50 backdrop-blur-xl bg-[#050507]/80 border-b border-white/10",
+      "links": "text-sm font-medium text-slate-300 hover:text-white transition-colors"
+    },
+    "rules": "Use Shadcn components heavily customized to match the dark metallic theme. Ensure data-testid on all interactive elements. Avoid card component overuse; consider cardless rectangular layouts for complex data. Do not use border-radius larger than md to keep the 'metallic' sharp look."
+  },
+  "motion_and_interaction": {
+    "hover": "Translate Y -2px, slight border color change to primary purple, increase box-shadow spread.",
+    "page_transitions": "Framer motion fade in and subtle slide up (y: 10 to 0).",
+    "micro_interactions": "Pulse effect on 'Live' or 'Active' orders. Tracing beam effect on premium booster cards."
+  },
+  "media": {
+    "images": [
+      {
+        "category": "logo",
+        "url": "https://customer-assets.emergentagent.com/job_f73653a2-3d46-44d2-95d3-e500614cfc81/artifacts/16ijes9k_ChatGPT%20Image%2014%20mai%202026%2C%2014_53_15_11zon.png",
+        "description": "Boosting Service Logo (Electric Purple & Metallic)",
+        "placement": "Header, Footer, Login Screen"
+      },
+      {
+        "category": "hero_background",
+        "url": "https://static.prod-images.emergentagent.com/jobs/f73653a2-3d46-44d2-95d3-e500614cfc81/images/b3573f89ac529232241d2c31b60b97f7c39dbca0d40eaed2b75dd02b669e9799.png",
+        "description": "Dark metallic background texture, brushed silver with subtle electric purple neon edge lighting",
+        "placement": "Home Page Hero, Auth Page Background"
+      },
+      {
+        "category": "abstract_background",
+        "url": "https://static.prod-images.emergentagent.com/jobs/f73653a2-3d46-44d2-95d3-e500614cfc81/images/7ba283cf9da268bff3f13e3c9d9a61169edc43bcda5d4a85bf95059203315051.png",
+        "description": "Abstract dark void with electric purple geometric glowing lines",
+        "placement": "Dashboard overview section background, decorative side panels"
+      },
+      {
+        "category": "game_card_valorant",
+        "url": "https://images.pexels.com/photos/7862599/pexels-photo-7862599.jpeg",
+        "description": "A young woman in a gaming chair adjusting headphones in an esports arena.",
+        "placement": "Valorant Game Card Thumbnail"
+      },
+      {
+        "category": "game_card_rocket_league",
+        "url": "https://images.unsplash.com/photo-1652318970273-acc95af4c6e1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHw0fHxyb2NrZXQlMjBsZWFndWUlMjBhY3Rpb258ZW58MHx8fHwxNzc5NDU4MDk0fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Sports/action background (used as Rocket League stand-in)",
+        "placement": "Rocket League Game Card Thumbnail"
+      },
+      {
+        "category": "dashboard_texture",
+        "url": "https://static.prod-images.emergentagent.com/jobs/f73653a2-3d46-44d2-95d3-e500614cfc81/images/2838d9ecf1b873c009f02c2284658b3ad9702039ec3e52b995bcef66d35eec3d.png",
+        "description": "Cyberpunk hacker terminal dashboard background",
+        "placement": "Admin panel, Orders view"
+      }
+    ]
+  },
+  "specific_pages": {
+    "auth": "Split screen layout. Left side: Abstract void image with branding. Right side: Login form (Email/Password + Google). Form must use standard metallic borders.",
+    "dashboard_home": "Grid of games (Valorant, Rocket League). Top section: Active boosting offers (horizontal scroll or grid). Bottom section: Accounts for sale.",
+    "boosting_flow": "Step-by-step or Bento layout. Select Mode -> Select Rank From/To -> Select Booster -> Payment/Credentials. Use visual rank icons or clean text with metallic styling.",
+    "chat": "Real-time chat UI. Client messages on right (purple accent), Booster on left (slate accent). System messages centered. Fixed height container with overflow-y-auto.",
+    "admin_panel": "Dense data table layout using Shadcn. Add/remove boosters via Firebase UID. List of conversations with moderation tools."
+  },
+  "icons_library": "lucide-react",
+  "instructions_to_main_agent": [
+    "Initialize React with Tailwind CSS and Shadcn UI primitives.",
+    "Ensure you are using .js/.jsx files, NOT .tsx files. Strip TypeScript from Shadcn components if necessary.",
+    "Configure Firebase Auth and Firestore. Structure collections: users, boosters, games, orders, accounts, messages.",
+    "Set up React Router for pages: /, /login, /dashboard, /games/:id, /boosters/:id, /order, /chat/:id, /admin.",
+    "Apply typography using Google Fonts Unbounded and Outfit. Ensure fonts are loaded in index.html.",
+    "Follow the theme_and_archetype strictly. No pure white backgrounds.",
+    "All interactive elements MUST have data-testid attributes for testing.",
+    "Use the provided image URLs for the games and backgrounds.",
+    "Implement language as French (Français) for all static strings."
+  ]
+}

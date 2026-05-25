@@ -49,11 +49,11 @@ const OrderBoostingPage = () => {
     })();
   }, [boosterUid, gameId]);
 
-  if (!game) return null;
-
   const isPaid = boosterOffer?.type === "paid";
-  const priceTableForMode = boosterOffer?.priceTable?.[game.modes.length ? mode : "default"] || {};
-
+  const priceTableForMode = useMemo(
+    () => boosterOffer?.priceTable?.[game?.modes.length ? mode : \"default\"] || {},
+    [boosterOffer, game, mode]
+  );
   // Compute total by summing transition prices from rankFrom..rankTo - 1
   const { totalPrice, missingTransitions } = useMemo(() => {
     if (!isPaid) return { totalPrice: 0, missingTransitions: [] };
@@ -74,7 +74,7 @@ const OrderBoostingPage = () => {
 
   // Check max rank constraint
   const maxRankLabel =
-    boosterOffer?.maxRankPerMode?.[game.modes.length ? mode : "default"];
+      boosterOffer?.maxRankPerMode?.[game?.modes.length ? mode : \"default\"];
   const maxRankIndex = maxRankLabel
     ? ranks.findIndex((r) => r.label === maxRankLabel)
     : -1;

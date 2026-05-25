@@ -97,11 +97,14 @@ const LandingPage = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-5 hidden lg:block relative">
-            <div className="relative aspect-square flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full bg-brand/20 blur-3xl" />
-              <img src={LOGO_URL} alt="" className="relative z-10 w-full max-w-md drop-shadow-2xl" />
-            </div>
+          <div className="lg:col-span-5 hidden lg:flex items-center justify-center relative">
+            <div className="absolute inset-0 rounded-full bg-brand/10 blur-3xl" />
+            <img
+              src={LOGO_URL}
+              alt=""
+              className="relative z-10 w-full max-w-sm drop-shadow-2xl"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
           </div>
         </div>
       </section>

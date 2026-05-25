@@ -14,7 +14,7 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen bg-ink-950 text-white relative" style={{width: '100%', overflowX: 'hidden'}}>
       {/* HEADER */}
-      <header className="absolute top-0 left-0 right-0 z-30">
+      <header className="absolute top-0 left-0 right-0 z-30 w-full">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 h-20 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3" data-testid="landing-logo">
             <img src={LOGO_URL} alt="" className="h-11 w-11 rounded-full ring-1 ring-brand/40" />

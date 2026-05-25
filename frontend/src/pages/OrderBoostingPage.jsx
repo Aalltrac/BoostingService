@@ -51,7 +51,7 @@ const OrderBoostingPage = () => {
 
   const isPaid = boosterOffer?.type === "paid";
   const priceTableForMode = useMemo(
-    () => boosterOffer?.priceTable?.[game?.modes.length ? mode : \"default\"] || {},
+    () => boosterOffer?.priceTable?.[game?.modes.length ? mode : "default"] || {},
     [boosterOffer, game, mode]
   );
   // Compute total by summing transition prices from rankFrom..rankTo - 1
@@ -74,7 +74,7 @@ const OrderBoostingPage = () => {
 
   // Check max rank constraint
   const maxRankLabel =
-      boosterOffer?.maxRankPerMode?.[game?.modes.length ? mode : \"default\"];
+      boosterOffer?.maxRankPerMode?.[game?.modes.length ? mode : "default"];
   const maxRankIndex = maxRankLabel
     ? ranks.findIndex((r) => r.label === maxRankLabel)
     : -1;

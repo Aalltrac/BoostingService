@@ -48,7 +48,7 @@ export const GAMES = {
     modes: ROCKET_LEAGUE_MODES,
     ranks: ROCKET_LEAGUE_RANKS,
     image:
-      "https://images.unsplash.com/photo-1652318970273-acc95af4c6e1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHw0fHxyb2NrZXQlMjBsZWFndWUlMjBhY3Rpb258ZW58MHx8fHwxNzc5NDU4MDk0fDA&ixlib=rb-4.1.0&q=85",
+      "https://i.postimg.cc/sxsX6k9b/rocket-league.png",
   },
   valorant: {
     id: "valorant",
@@ -56,7 +56,7 @@ export const GAMES = {
     tagline: "Atteins Radiant. Sans transpirer.",
     modes: [],
     ranks: VALORANT_RANKS,
-    image: "https://images.pexels.com/photos/7862599/pexels-photo-7862599.jpeg",
+    image: "https://i.postimg.cc/7h2Fzh2P/ps-f2p-val-console-launch-16x9.jpg",
   },
 };
 

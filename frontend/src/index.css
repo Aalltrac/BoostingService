@@ -1,20 +1,21 @@
+/* DOIT être en premier absolu */
 @import url("https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;600;700;900&family=Outfit:wght@300;400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
+/* Ajouter ces resets CRITIQUES après les tailwind directives */
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
-html,
-body,
-#root {
-  background: #050507;
-  color: #ffffff;
-  font-family: "Outfit", system-ui, sans-serif;
-  min-height: 100%;
+html, body, #root, .App {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
 }
 
 body {

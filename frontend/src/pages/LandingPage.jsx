@@ -12,7 +12,7 @@ const LandingPage = () => {
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-ink-950 text-white overflow-hidden relative">
+    <div className="min-h-screen bg-ink-950 text-white relative" style={{width: '100%', overflowX: 'hidden'}}>
       {/* HEADER */}
       <header className="absolute top-0 left-0 right-0 z-30">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 h-20 flex items-center justify-between">

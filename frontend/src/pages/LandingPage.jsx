@@ -14,7 +14,7 @@ import {
 import { useAuth } from "../AuthContext";
 
 const LOGO_URL =
-  "https://customer-assets.emergentagent.com/job_f73653a2-3d46-44d2-95d3-e500614cfc81/artifacts/16ijes9k_ChatGPT%20Image%2014%20mai%202026%2C%2014_53_15_11zon.png";
+  "https://i.postimg.cc/sxL0Tr5p/Chat-GPT-Image-14-mai-2026-14-53-15-11zon-removebg-preview.png";
 
 const HERO_BG =
   "https://static.prod-images.emergentagent.com/jobs/f73653a2-3d46-44d2-95d3-e500614cfc81/images/b3573f89ac529232241d2c31b60b97f7c39dbca0d40eaed2b75dd02b669e9799.png";

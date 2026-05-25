@@ -75,7 +75,7 @@ const BoosterCreateOfferPage = () => {
       }
       setOpenMode(modes[0]);
     })();
-  }, [user, game, kind]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, game, kind]); // eslint-disable-line
 
   if (!isBooster) return <Navigate to="/games" replace />;
 

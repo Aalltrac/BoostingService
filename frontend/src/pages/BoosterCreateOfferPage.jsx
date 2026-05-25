@@ -23,19 +23,16 @@ const BoosterCreateOfferPage = () => {
   const [kind, setKind] = useState("boosting");
   const [game, setGame] = useState("rocket-league");
 
-  // Boosting
   const [title, setTitle] = useState("");
   const [imageB64, setImageB64] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState("free");
   const [donationLinks, setDonationLinks] = useState([{ label: "PayPal", url: "" }]);
   const [maxRankPerMode, setMaxRankPerMode] = useState({});
-  // priceTable[mode][transitionKey] = price (number). RL has many modes; Valorant uses "default".
   const [priceTable, setPriceTable] = useState({});
   const [openMode, setOpenMode] = useState(null);
-  const [bulkValue, setBulkValue] = useState({}); // bulk fill input per mode
+  const [bulkValue, setBulkValue] = useState({});
 
-  // Account
   const [accTitle, setAccTitle] = useState("");
   const [accImageB64, setAccImageB64] = useState("");
   const [accDesc, setAccDesc] = useState("");
@@ -78,8 +75,7 @@ const BoosterCreateOfferPage = () => {
       }
       setOpenMode(modes[0]);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, game, kind]);
+  }, [user, game, kind]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!isBooster) return <Navigate to="/games" replace />;
 
@@ -128,7 +124,6 @@ const BoosterCreateOfferPage = () => {
         await addDoc(collection(db, "boosterOffers"), { ...payload, createdAt: serverTimestamp() });
       }
       await updateDoc(doc(db, "users", user.uid), { donationLinks: cleanLinks });
-
       toast.success("Offre enregistrée !");
       navigate(`/games/${game}`);
     } catch (err) {

@@ -56,7 +56,6 @@ const ChatPage = () => {
       }
       setParticipants(map);
 
-      // Load order linked to this conversation
       const oq = query(collection(db, "orders"), where("conversationId", "==", conversationId));
       const os = await getDocs(oq);
       if (!os.empty) setOrder({ id: os.docs[0].id, ...os.docs[0].data() });
@@ -67,7 +66,6 @@ const ChatPage = () => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Permissions
   const allowed = conv && (conv.participants?.includes(user.uid) || isCreator);
   const isClient = conv?.clientUid === user?.uid;
   const isBooster = conv?.boosterUid === user?.uid;
@@ -107,36 +105,27 @@ const ChatPage = () => {
 
       if (order.type === "boosting") {
         if (order.offerType === "free") {
-          // Send booster donation links to client
           const bSnap = await getDoc(doc(db, "users", order.boosterUid));
           const bData = bSnap.data() || {};
           const links = bData.donationLinks || [];
           const linksTxt = links.length
-            ? links.map((l) => `${l.label || "Lien"} : ${l.url}`).join("
-")
+            ? links.map((l) => `${l.label || "Lien"} : ${l.url}`).join("\n")
             : "Aucun lien de donation renseigné.";
           await addDoc(collection(db, "conversations", conversationId, "messages"), {
             senderUid: "system",
             system: true,
-            text: `Boost terminé !
-Si tu veux soutenir ton boosteur, voici ses liens de donation :
-${linksTxt}`,
+            text: `Boost terminé !\nSi tu veux soutenir ton boosteur, voici ses liens de donation :\n${linksTxt}`,
             createdAt: serverTimestamp(),
           });
         } else {
-          // Paid: send commission message to booster
           const price = Number(order.price) || 0;
           const rate = commissionRate(price);
           const com = (price * rate).toFixed(2);
-          const linksTxt = CREATOR_DONATION_LINKS.map((l) => `${l.label} : ${l.url}`).join("
-");
+          const linksTxt = CREATOR_DONATION_LINKS.map((l) => `${l.label} : ${l.url}`).join("\n");
           await addDoc(collection(db, "conversations", conversationId, "messages"), {
             senderUid: "system",
             system: true,
-            text: `Commande ${order.id} terminée.
-Montant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€
-Merci de verser la commission via :
-${linksTxt}`,
+            text: `Commande ${order.id} terminée.\nMontant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€\nMerci de verser la commission via :\n${linksTxt}`,
             createdAt: serverTimestamp(),
           });
         }
@@ -144,18 +133,13 @@ ${linksTxt}`,
         const price = Number(order.price) || 0;
         const rate = commissionRate(price);
         const com = (price * rate).toFixed(2);
-        const linksTxt = CREATOR_DONATION_LINKS.map((l) => `${l.label} : ${l.url}`).join("
-");
+        const linksTxt = CREATOR_DONATION_LINKS.map((l) => `${l.label} : ${l.url}`).join("\n");
         await addDoc(collection(db, "conversations", conversationId, "messages"), {
           senderUid: "system",
           system: true,
-          text: `Vente terminée.
-Montant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€
-Merci de verser la commission via :
-${linksTxt}`,
+          text: `Vente terminée.\nMontant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€\nMerci de verser la commission via :\n${linksTxt}`,
           createdAt: serverTimestamp(),
         });
-        // Mark listing sold
         if (order.accountId) {
           await updateDoc(doc(db, "accountListings", order.accountId), { sold: true });
         }
@@ -174,7 +158,6 @@ ${linksTxt}`,
       </Link>
 
       <div className="mt-4 border border-white/10 bg-ink-900 flex flex-col h-[78vh] rounded-sm">
-        {/* HEADER */}
         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="font-mono-label text-[10px] text-brand">— {conv?.type === "account_sale" ? "Vente de compte" : "Boosting"} {conv?.game}</div>
@@ -201,7 +184,6 @@ ${linksTxt}`,
           )}
         </div>
 
-        {/* MESSAGES */}
         <div className="flex-1 overflow-y-auto p-5 space-y-3" data-testid="messages-list">
           {messages.map((m) => {
             if (m.system) {
@@ -230,7 +212,6 @@ ${linksTxt}`,
           <div ref={endRef} />
         </div>
 
-        {/* INPUT */}
         <form onSubmit={send} className="border-t border-white/10 p-3 flex gap-2" data-testid="chat-input-form">
           <input
             value={text}

@@ -14,7 +14,20 @@ import { db } from "../firebase";
 import { useAuth } from "../AuthContext";
 import { GAMES, getFullRanks, getRankTransitions } from "../constants";
 import { toast } from "sonner";
-import { ArrowRight, Lock, Mail, KeyRound, AlertTriangle } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowLeft,
+  Lock,
+  Mail,
+  KeyRound,
+  AlertTriangle,
+  Check,
+  Shield,
+  Gift,
+  Sparkles,
+  Gamepad2,
+  TrendingUp,
+} from "lucide-react";
 
 const OrderBoostingPage = () => {
   const { gameId, boosterUid } = useParams();
@@ -22,7 +35,10 @@ const OrderBoostingPage = () => {
   const navigate = useNavigate();
   const game = GAMES[gameId];
   const ranks = useMemo(() => (game ? getFullRanks(gameId) : []), [game, gameId]);
-  const transitions = useMemo(() => (game ? getRankTransitions(gameId) : []), [game, gameId]);
+  const transitions = useMemo(
+    () => (game ? getRankTransitions(gameId) : []),
+    [game, gameId]
+  );
 
   const [step, setStep] = useState(1);
   const [mode, setMode] = useState(game?.modes[0] || "default");
@@ -45,7 +61,8 @@ const OrderBoostingPage = () => {
         where("uid", "==", boosterUid)
       );
       const snap = await getDocs(offerQ);
-      if (!snap.empty) setBoosterOffer({ id: snap.docs[0].id, ...snap.docs[0].data() });
+      if (!snap.empty)
+        setBoosterOffer({ id: snap.docs[0].id, ...snap.docs[0].data() });
     })();
   }, [boosterUid, gameId]);
 
@@ -54,7 +71,7 @@ const OrderBoostingPage = () => {
     () => boosterOffer?.priceTable?.[game?.modes.length ? mode : "default"] || {},
     [boosterOffer, game, mode]
   );
-  // Compute total by summing transition prices from rankFrom..rankTo - 1
+
   const { totalPrice, missingTransitions } = useMemo(() => {
     if (!isPaid) return { totalPrice: 0, missingTransitions: [] };
     let total = 0;
@@ -72,9 +89,8 @@ const OrderBoostingPage = () => {
     return { totalPrice: total, missingTransitions: missing };
   }, [isPaid, rankFrom, rankTo, priceTableForMode, transitions]);
 
-  // Check max rank constraint
   const maxRankLabel =
-      boosterOffer?.maxRankPerMode?.[game?.modes.length ? mode : "default"];
+    boosterOffer?.maxRankPerMode?.[game?.modes.length ? mode : "default"];
   const maxRankIndex = maxRankLabel
     ? ranks.findIndex((r) => r.label === maxRankLabel)
     : -1;
@@ -150,200 +166,510 @@ Mot de passe : ${accPassword}`;
     }
   };
 
+  const steps = ["Configuration", "Identifiants", "Confirmation"];
+
   return (
-    <div className="max-w-4xl mx-auto px-4 lg:px-8 py-10">
-      <Link to={`/games/${gameId}`} className="font-mono-label text-[11px] text-slate-400 hover:text-white" data-testid="order-back">
-        ← Retour à {game.name}
-      </Link>
-
-      <h1 className="font-display font-black text-3xl sm:text-5xl tracking-tighter mt-4 mb-2">
-        Commande de <span className="text-brand">boost</span>
-      </h1>
-      <p className="text-slate-400 mb-10">
-        Boosteur sélectionné :{" "}
-        <span className="text-white font-semibold">{boosterUser?.displayName || "..."}</span>
-        {boosterOffer?.type === "free" && (
-          <span className="ml-2 font-mono-label text-[10px] text-green-400">GRATUIT · DON</span>
-        )}
-      </p>
-
-      {/* STEPS */}
-      <div className="grid grid-cols-3 gap-2 mb-10">
-        {["Configuration", "Identifiants", "Confirmation"].map((s, i) => (
-          <div
-            key={i}
-            className={`p-3 border ${step === i + 1 ? "border-brand bg-brand/10" : "border-white/10"} rounded-sm`}
+    <div className="min-h-screen bg-ink-950 text-white">
+      {/* Top nav */}
+      <div className="border-b border-white/5">
+        <div className="max-w-5xl mx-auto px-6 py-5">
+          <Link
+            to={`/game/${gameId}`}
+            data-testid="back-link"
+            className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
           >
-            <div className="font-mono-label text-[10px] text-brand">— Étape {i + 1}</div>
-            <div className="text-sm font-semibold mt-1">{s}</div>
-          </div>
-        ))}
+            <ArrowLeft className="w-4 h-4" />
+            Retour à {game?.name}
+          </Link>
+        </div>
       </div>
 
-      {step === 1 && (
-        <div className="border border-white/10 bg-ink-900 p-6 lg:p-10 space-y-6">
-          {game.modes.length > 0 && (
-            <div>
-              <label className="font-mono-label text-[10px] text-slate-400 block mb-3">Mode de jeu</label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {game.modes.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMode(m)}
-                    data-testid={`mode-${m}`}
-                    className={`px-3 py-2 text-sm font-semibold border rounded-sm transition-colors ${
-                      mode === m ? "border-brand bg-brand/20 text-white" : "border-white/10 hover:border-brand/40 text-slate-300"
-                    }`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
+      <div className="max-w-5xl mx-auto px-6 py-10">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
+          <div>
+            <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-brand mb-3">
+              <Gamepad2 className="w-3.5 h-3.5" />
+              {game?.name}
             </div>
-          )}
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <label className="font-mono-label text-[10px] text-slate-400 block mb-3">Rank actuel</label>
-              <select
-                value={rankFrom}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setRankFrom(v);
-                  if (rankTo <= v) setRankTo(Math.min(v + 1, ranks.length - 1));
-                }}
-                data-testid="rank-from-select"
-                className="w-full bg-ink-950 border border-white/10 focus:border-brand focus:outline-none px-3 py-3 text-sm rounded-sm"
-              >
-                {ranks.map((r) => (
-                  <option key={r.label} value={r.index}>{r.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="font-mono-label text-[10px] text-slate-400 block mb-3">Rank souhaité</label>
-              <select
-                value={rankTo}
-                onChange={(e) => setRankTo(Number(e.target.value))}
-                data-testid="rank-to-select"
-                className="w-full bg-ink-950 border border-white/10 focus:border-brand focus:outline-none px-3 py-3 text-sm rounded-sm"
-              >
-                {ranks.filter((r) => r.index > rankFrom).map((r) => (
-                  <option key={r.label} value={r.index}>{r.label}</option>
-                ))}
-              </select>
-            </div>
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+              Commande de boost
+            </h1>
+            <p className="text-slate-400 mt-3 text-sm">
+              Boosteur sélectionné :{" "}
+              <span className="text-white font-semibold">
+                {boosterUser?.displayName || "..."}
+              </span>
+            </p>
           </div>
 
-          {isPaid && (
-            <div className="border border-white/5 bg-ink-950 p-4 rounded-sm">
-              <div className="font-mono-label text-[10px] text-slate-500 mb-3">Détail du calcul</div>
-              <div className="space-y-1 text-xs max-h-40 overflow-y-auto">
-                {Array.from({ length: rankTo - rankFrom }).map((_, k) => {
-                  const t = transitions.find((tr) => tr.fromIndex === rankFrom + k);
-                  if (!t) return null;
-                  const p = priceTableForMode[t.key];
-                  const has = p !== undefined && p !== "" && p !== null;
-                  return (
-                    <div key={t.key} className={`flex justify-between ${has ? "text-slate-300" : "text-red-400"}`}>
-                      <span>{t.key}</span>
-                      <span className="font-semibold">{has ? `${p}€` : "indisponible"}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {(exceedsMax || missingTransitions.length > 0) && (
-            <div className="flex items-start gap-2 bg-red-500/5 border border-red-500/30 p-3 rounded-sm text-xs text-red-300">
-              <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
-              <div>
-                {exceedsMax && <>Ce boosteur ne dépasse pas <b>{maxRankLabel}</b> sur ce mode. </>}
-                {missingTransitions.length > 0 && <>Certaines transitions ne sont pas proposées par ce boosteur.</>}
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between pt-4 border-t border-white/5">
-            <div>
-              <div className="font-mono-label text-[10px] text-slate-500">Prix total</div>
-              <div className="font-display font-black text-3xl text-brand mt-1">
-                {!isPaid ? "Gratuit" : `${totalPrice}€`}
-              </div>
-            </div>
-            <button
-              onClick={() => setStep(2)}
-              disabled={rankFrom >= rankTo || exceedsMax || (isPaid && missingTransitions.length > 0)}
-              data-testid="step-1-next"
-              className="bg-brand hover:bg-brand-hover px-6 py-3 font-bold rounded-sm purple-glow disabled:opacity-40 inline-flex items-center gap-2"
+          {boosterOffer?.type === "free" && (
+            <div
+              data-testid="free-badge"
+              className="inline-flex items-center gap-2 px-3 py-1.5 border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs font-bold uppercase tracking-wider rounded-sm self-start"
             >
-              Suivant <ArrowRight size={16} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === 2 && (
-        <div className="border border-white/10 bg-ink-900 p-6 lg:p-10 space-y-6">
-          <div className="flex items-start gap-3 p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-sm">
-            <Lock size={18} className="text-yellow-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <div className="font-semibold text-sm">Identifiants requis</div>
-              <p className="text-xs text-slate-400 mt-1">
-                Tes identifiants seront transmis uniquement au boosteur via le chat sécurisé. Le créateur conserve un accès en cas de litige.
-              </p>
+              <Gift className="w-3.5 h-3.5" />
+              Gratuit · Don
             </div>
-          </div>
-          <div>
-            <label className="font-mono-label text-[10px] text-slate-400 block mb-2">
-              <Mail size={11} className="inline mr-1" /> Email du compte
-            </label>
-            <input type="text" required value={accEmail} onChange={(e) => setAccEmail(e.target.value)} data-testid="account-email-input" className="w-full bg-ink-950 border border-white/10 focus:border-brand focus:outline-none px-3 py-3 text-sm rounded-sm" />
-          </div>
-          <div>
-            <label className="font-mono-label text-[10px] text-slate-400 block mb-2">
-              <KeyRound size={11} className="inline mr-1" /> Mot de passe du compte
-            </label>
-            <input type="text" required value={accPassword} onChange={(e) => setAccPassword(e.target.value)} data-testid="account-password-input" className="w-full bg-ink-950 border border-white/10 focus:border-brand focus:outline-none px-3 py-3 text-sm rounded-sm" />
-          </div>
-          <div className="flex justify-between pt-4 border-t border-white/5">
-            <button onClick={() => setStep(1)} className="px-4 py-2 text-sm text-slate-400 hover:text-white" data-testid="step-2-back">← Précédent</button>
-            <button onClick={() => setStep(3)} disabled={!accEmail || !accPassword} data-testid="step-2-next" className="bg-brand hover:bg-brand-hover px-6 py-3 font-bold rounded-sm purple-glow disabled:opacity-40 inline-flex items-center gap-2">
-              Suivant <ArrowRight size={16} />
-            </button>
-          </div>
+          )}
         </div>
-      )}
 
-      {step === 3 && (
-        <div className="border border-white/10 bg-ink-900 p-6 lg:p-10 space-y-4">
-          <h2 className="font-display font-bold text-xl mb-4">Récapitulatif</h2>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <Item k="Jeu" v={game.name} />
-            {game.modes.length > 0 && <Item k="Mode" v={mode} />}
-            <Item k="Rank actuel" v={ranks[rankFrom].label} />
-            <Item k="Rank souhaité" v={ranks[rankTo].label} />
-            <Item k="Boosteur" v={boosterUser?.displayName || "..."} />
-            <Item k="Prix" v={!isPaid ? "Gratuit (don)" : `${totalPrice}€`} accent />
-          </div>
-          <div className="flex justify-between pt-6 border-t border-white/5">
-            <button onClick={() => setStep(2)} className="px-4 py-2 text-sm text-slate-400 hover:text-white" data-testid="step-3-back">← Précédent</button>
-            <button onClick={placeOrder} disabled={busy} data-testid="confirm-order-btn" className="bg-brand hover:bg-brand-hover px-8 py-3 font-bold rounded-sm purple-glow disabled:opacity-50">
-              {busy ? "Envoi…" : "Confirmer la commande"}
-            </button>
+        {/* Stepper */}
+        <div className="mb-10">
+          <div className="grid grid-cols-3 gap-3">
+            {steps.map((s, i) => {
+              const idx = i + 1;
+              const done = step > idx;
+              const active = step === idx;
+              return (
+                <div
+                  key={s}
+                  data-testid={`step-indicator-${idx}`}
+                  className={`relative border rounded-sm p-4 transition-all ${
+                    active
+                      ? "border-brand bg-brand/10"
+                      : done
+                      ? "border-emerald-500/40 bg-emerald-500/5"
+                      : "border-white/10 bg-white/[0.02]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-7 h-7 flex items-center justify-center rounded-sm text-xs font-bold ${
+                        active
+                          ? "bg-brand text-white"
+                          : done
+                          ? "bg-emerald-500 text-white"
+                          : "bg-white/10 text-slate-400"
+                      }`}
+                    >
+                      {done ? <Check className="w-4 h-4" /> : idx}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-widest text-slate-500">
+                        Étape {idx}
+                      </span>
+                      <span
+                        className={`text-sm font-semibold ${
+                          active || done ? "text-white" : "text-slate-400"
+                        }`}
+                      >
+                        {s}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-      )}
+
+        {/* CONTENT GRID */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Main column */}
+          <div className="lg:col-span-2">
+            {step === 1 && (
+              <Card>
+                <CardHeader
+                  icon={<TrendingUp className="w-4 h-4" />}
+                  title="Configure ton boost"
+                  subtitle="Sélectionne le mode et les rangs souhaités."
+                />
+
+                <div className="p-6 space-y-7">
+                  {game?.modes.length > 0 && (
+                    <div>
+                      <Label>Mode de jeu</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {game.modes.map((m) => (
+                          <button
+                            key={m}
+                            onClick={() => setMode(m)}
+                            data-testid={`mode-${m}`}
+                            className={`px-4 py-2 text-sm font-semibold border rounded-sm transition-all ${
+                              mode === m
+                                ? "border-brand bg-brand/20 text-white"
+                                : "border-white/10 hover:border-brand/40 text-slate-300 hover:text-white"
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid sm:grid-cols-2 gap-5">
+                    <div>
+                      <Label>Rank actuel</Label>
+                      <Select
+                        value={rankFrom}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          setRankFrom(v);
+                          if (rankTo <= v)
+                            setRankTo(Math.min(v + 1, ranks.length - 1));
+                        }}
+                        data-testid="rank-from-select"
+                      >
+                        {ranks.map((r) => (
+                          <option key={r.label} value={r.index}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>Rank souhaité</Label>
+                      <Select
+                        value={rankTo}
+                        onChange={(e) => setRankTo(Number(e.target.value))}
+                        data-testid="rank-to-select"
+                      >
+                        {ranks
+                          .filter((r) => r.index > rankFrom)
+                          .map((r) => (
+                            <option key={r.label} value={r.index}>
+                              {r.label}
+                            </option>
+                          ))}
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Progress visual */}
+                  <div className="border border-white/10 bg-white/[0.02] rounded-sm p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">
+                          Départ
+                        </div>
+                        <div className="text-sm font-semibold truncate">
+                          {ranks[rankFrom]?.label}
+                        </div>
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-brand shrink-0" />
+                      <div className="flex-1 min-w-0 text-right">
+                        <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">
+                          Objectif
+                        </div>
+                        <div className="text-sm font-semibold truncate">
+                          {ranks[rankTo]?.label}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {isPaid && (
+                    <div>
+                      <Label>Détail du calcul</Label>
+                      <div className="border border-white/10 rounded-sm divide-y divide-white/5">
+                        {Array.from({ length: rankTo - rankFrom }).map((_, k) => {
+                          const t = transitions.find(
+                            (tr) => tr.fromIndex === rankFrom + k
+                          );
+                          if (!t) return null;
+                          const p = priceTableForMode[t.key];
+                          const has =
+                            p !== undefined && p !== "" && p !== null;
+                          return (
+                            <div
+                              key={t.key}
+                              className="flex items-center justify-between px-4 py-3 text-sm"
+                            >
+                              <span className="text-slate-300">{t.key}</span>
+                              <span
+                                className={`font-semibold ${
+                                  has ? "text-white" : "text-rose-400"
+                                }`}
+                              >
+                                {has ? `${p}€` : "indisponible"}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {(exceedsMax || missingTransitions.length > 0) && (
+                    <div
+                      data-testid="warning-banner"
+                      className="border border-amber-500/30 bg-amber-500/10 text-amber-200 rounded-sm p-4 flex gap-3"
+                    >
+                      <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                      <div className="text-sm space-y-1">
+                        {exceedsMax && (
+                          <p>
+                            Ce boosteur ne dépasse pas{" "}
+                            <strong className="text-white">{maxRankLabel}</strong>{" "}
+                            sur ce mode.
+                          </p>
+                        )}
+                        {missingTransitions.length > 0 && (
+                          <p>
+                            Certaines transitions ne sont pas proposées par ce
+                            boosteur.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-white/5 px-6 py-5 flex items-center justify-end">
+                  <button
+                    onClick={() => setStep(2)}
+                    disabled={
+                      rankFrom >= rankTo ||
+                      exceedsMax ||
+                      (isPaid && missingTransitions.length > 0)
+                    }
+                    data-testid="step-1-next"
+                    className="bg-brand hover:bg-brand-hover px-6 py-3 font-bold rounded-sm purple-glow disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2 transition-all"
+                  >
+                    Suivant
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </Card>
+            )}
+
+            {step === 2 && (
+              <Card>
+                <CardHeader
+                  icon={<Lock className="w-4 h-4" />}
+                  title="Identifiants requis"
+                  subtitle="Transmis uniquement au boosteur via le chat sécurisé. Le créateur conserve un accès en cas de litige."
+                />
+
+                <div className="p-6 space-y-5">
+                  <div>
+                    <Label icon={<Mail className="w-3.5 h-3.5" />}>
+                      Email du compte
+                    </Label>
+                    <input
+                      type="email"
+                      value={accEmail}
+                      onChange={(e) => setAccEmail(e.target.value)}
+                      data-testid="account-email-input"
+                      placeholder="email@exemple.com"
+                      className="w-full bg-ink-950 border border-white/10 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 px-3 py-3 text-sm rounded-sm transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <Label icon={<KeyRound className="w-3.5 h-3.5" />}>
+                      Mot de passe du compte
+                    </Label>
+                    <input
+                      type="password"
+                      value={accPassword}
+                      onChange={(e) => setAccPassword(e.target.value)}
+                      data-testid="account-password-input"
+                      placeholder="••••••••"
+                      className="w-full bg-ink-950 border border-white/10 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 px-3 py-3 text-sm rounded-sm transition-all"
+                    />
+                  </div>
+
+                  <div className="flex gap-3 items-start text-xs text-slate-400 border border-white/5 bg-white/[0.02] rounded-sm p-3">
+                    <Shield className="w-4 h-4 text-brand shrink-0 mt-0.5" />
+                    <span>
+                      Tes identifiants sont chiffrés et ne sont visibles que par
+                      ton boosteur et le créateur de la plateforme.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="border-t border-white/5 px-6 py-5 flex items-center justify-between">
+                  <button
+                    onClick={() => setStep(1)}
+                    data-testid="step-2-back"
+                    className="px-4 py-2 text-sm text-slate-400 hover:text-white inline-flex items-center gap-1 transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Précédent
+                  </button>
+                  <button
+                    onClick={() => setStep(3)}
+                    disabled={!accEmail || !accPassword}
+                    data-testid="step-2-next"
+                    className="bg-brand hover:bg-brand-hover px-6 py-3 font-bold rounded-sm purple-glow disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2 transition-all"
+                  >
+                    Suivant
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </Card>
+            )}
+
+            {step === 3 && (
+              <Card>
+                <CardHeader
+                  icon={<Sparkles className="w-4 h-4" />}
+                  title="Récapitulatif"
+                  subtitle="Vérifie ta commande avant de l'envoyer au boosteur."
+                />
+
+                <div className="p-6">
+                  <div className="border border-white/10 rounded-sm divide-y divide-white/5">
+                    <Item k="Jeu" v={game?.name} />
+                    {game?.modes.length > 0 && <Item k="Mode" v={mode} />}
+                    <Item k="Rank actuel" v={ranks[rankFrom]?.label} />
+                    <Item k="Rank souhaité" v={ranks[rankTo]?.label} />
+                    <Item
+                      k="Boosteur"
+                      v={boosterUser?.displayName || "Boosteur"}
+                    />
+                    <Item
+                      k="Email du compte"
+                      v={accEmail}
+                      mono
+                    />
+                    <Item
+                      k="Mot de passe"
+                      v={"•".repeat(Math.min(accPassword.length, 12))}
+                      mono
+                    />
+                    <Item
+                      k="Prix total"
+                      v={isPaid ? `${totalPrice}€` : "Gratuit"}
+                      accent
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t border-white/5 px-6 py-5 flex items-center justify-between">
+                  <button
+                    onClick={() => setStep(2)}
+                    data-testid="step-3-back"
+                    className="px-4 py-2 text-sm text-slate-400 hover:text-white inline-flex items-center gap-1 transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Précédent
+                  </button>
+                  <button
+                    onClick={placeOrder}
+                    disabled={busy}
+                    data-testid="confirm-order-btn"
+                    className="bg-brand hover:bg-brand-hover px-6 py-3 font-bold rounded-sm purple-glow disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2 transition-all"
+                  >
+                    {busy ? "Envoi…" : "Confirmer la commande"}
+                    {!busy && <Check className="w-4 h-4" />}
+                  </button>
+                </div>
+              </Card>
+            )}
+          </div>
+
+          {/* Sidebar - Summary */}
+          <aside className="lg:col-span-1">
+            <div className="sticky top-6 space-y-4">
+              <Card>
+                <div className="p-5">
+                  <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-3">
+                    Résumé
+                  </div>
+
+                  <div className="space-y-3 text-sm">
+                    <SummaryRow label="Jeu" value={game?.name} />
+                    {game?.modes.length > 0 && (
+                      <SummaryRow label="Mode" value={mode} />
+                    )}
+                    <SummaryRow
+                      label="Départ"
+                      value={ranks[rankFrom]?.label}
+                    />
+                    <SummaryRow
+                      label="Objectif"
+                      value={ranks[rankTo]?.label}
+                    />
+                  </div>
+
+                  <div className="border-t border-white/5 mt-5 pt-5 flex items-end justify-between">
+                    <span className="text-xs uppercase tracking-widest text-slate-500">
+                      Prix total
+                    </span>
+                    <span
+                      data-testid="total-price"
+                      className="text-3xl font-bold text-brand"
+                    >
+                      {!isPaid ? "Gratuit" : `${totalPrice}€`}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+
+              <div className="flex items-start gap-3 text-xs text-slate-400 px-1">
+                <Shield className="w-4 h-4 text-brand shrink-0 mt-0.5" />
+                <span>
+                  Paiement sécurisé. Aucun débit avant l'acceptation par le
+                  boosteur.
+                </span>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
     </div>
   );
 };
 
-const Item = ({ k, v, accent }) => (
-  <div className="border border-white/5 p-4 rounded-sm">
-    <div className="font-mono-label text-[10px] text-slate-500">{k}</div>
-    <div className={`text-base mt-1 ${accent ? "font-display font-black text-brand text-2xl" : "font-semibold"}`}>{v}</div>
+/* -------- Subcomponents -------- */
+
+const Card = ({ children }) => (
+  <div className="bg-white/[0.02] border border-white/10 rounded-sm overflow-hidden">
+    {children}
+  </div>
+);
+
+const CardHeader = ({ icon, title, subtitle }) => (
+  <div className="border-b border-white/5 px-6 py-5">
+    <div className="flex items-center gap-2 text-brand text-xs uppercase tracking-widest mb-2">
+      {icon}
+      <span>Étape</span>
+    </div>
+    <h2 className="text-xl font-bold">{title}</h2>
+    {subtitle && (
+      <p className="text-sm text-slate-400 mt-1.5 leading-relaxed">{subtitle}</p>
+    )}
+  </div>
+);
+
+const Label = ({ children, icon }) => (
+  <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-slate-400 mb-2">
+    {icon}
+    {children}
+  </label>
+);
+
+const Select = ({ children, ...props }) => (
+  <select
+    {...props}
+    className="w-full bg-ink-950 border border-white/10 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 px-3 py-3 text-sm rounded-sm transition-all"
+  >
+    {children}
+  </select>
+);
+
+const SummaryRow = ({ label, value }) => (
+  <div className="flex items-center justify-between gap-3">
+    <span className="text-slate-500">{label}</span>
+    <span className="text-white font-medium text-right truncate">{value}</span>
+  </div>
+);
+
+const Item = ({ k, v, accent, mono }) => (
+  <div className="flex items-center justify-between gap-4 px-4 py-3">
+    <span className="text-xs uppercase tracking-widest text-slate-500">{k}</span>
+    <span
+      className={`text-sm text-right truncate ${
+        accent ? "text-brand font-bold text-base" : "text-white font-medium"
+      } ${mono ? "font-mono" : ""}`}
+    >
+      {v}
+    </span>
   </div>
 );
 

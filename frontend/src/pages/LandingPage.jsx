@@ -12,9 +12,9 @@ const LandingPage = () => {
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-ink-950 text-white overflow-hidden relative">
+    <div style={{ minHeight: "100vh", backgroundColor: "#050507", color: "#fff", overflowX: "hidden" }}>
       {/* HEADER */}
-      <header className="absolute top-0 left-0 right-0 z-30">
+      <header style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50, background: "rgba(5,5,7,0.85)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="max-w-7xl mx-auto px-4 lg:px-8 h-20 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3" data-testid="landing-logo">
             <img src={LOGO_URL} alt="" className="h-11 w-11 rounded-full ring-1 ring-brand/40" />
@@ -24,13 +24,7 @@ const LandingPage = () => {
             </div>
           </Link>
           <div className="flex items-center gap-3">
-            <Link
-              to="/cgu"
-              className="text-xs font-mono-label text-slate-400 hover:text-white transition-colors"
-              data-testid="landing-cgu"
-            >
-              CGU
-            </Link>
+            <Link to="/cgu" className="text-xs font-mono-label text-slate-400 hover:text-white transition-colors" data-testid="landing-cgu">CGU</Link>
             <Link
               to={user ? "/games" : "/auth"}
               data-testid="landing-cta-header"
@@ -43,71 +37,77 @@ const LandingPage = () => {
       </header>
 
       {/* HERO */}
-      <section className="relative pt-32 pb-24 lg:pt-44 lg:pb-32">
+      <section style={{ paddingTop: "120px", paddingBottom: "80px", position: "relative" }}>
         <div
-          className="absolute inset-0 z-0 opacity-30 bg-cover bg-center"
-          style={{ backgroundImage: `url(${HERO_BG})` }}
+          style={{
+            position: "absolute", inset: 0, zIndex: 0,
+            opacity: 0.3, backgroundImage: `url(${HERO_BG})`,
+            backgroundSize: "cover", backgroundPosition: "center",
+          }}
         />
-        <div className="absolute inset-0 z-10 bg-gradient-to-b from-ink-950/40 via-ink-950/70 to-ink-950" />
-        <div className="relative z-20 max-w-7xl mx-auto px-4 lg:px-8 grid lg:grid-cols-12 gap-10 items-center">
-          <div className="lg:col-span-7">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-brand/30 bg-brand/10 rounded-sm mb-8 fade-up">
-              <span className="h-1.5 w-1.5 bg-brand rounded-full pulse-dot" />
-              <span className="font-mono-label text-[10px]">Boosteurs vérifiés · Chat en direct</span>
-            </div>
-            <h1 className="font-display font-black text-5xl sm:text-6xl lg:text-7xl leading-[0.95] tracking-tighter fade-up">
-              Monte de <span className="metallic-text">rank.</span>
-              <br />
-              Sans <span className="text-brand">galérer.</span>
-            </h1>
-            <p className="mt-6 max-w-xl text-slate-400 text-lg leading-relaxed fade-up" style={{ animationDelay: "0.1s" }}>
-              Boosting Service met en relation joueurs et boosteurs pros sur{" "}
-              <span className="text-white font-semibold">Rocket League</span> &{" "}
-              <span className="text-white font-semibold">Valorant</span>. Choisis ton boosteur, lance ta commande, suis
-              la progression en temps réel.
-            </p>
-            <div className="mt-10 flex flex-wrap gap-4 fade-up" style={{ animationDelay: "0.2s" }}>
-              <Link
-                to={user ? "/games" : "/auth"}
-                data-testid="hero-cta-primary"
-                className="group inline-flex items-center gap-2 bg-brand hover:bg-brand-hover transition-all px-7 py-4 font-bold rounded-sm purple-glow"
-              >
-                {user ? "Voir les jeux" : "Démarrer maintenant"}
-                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-              </Link>
-              <Link
-                to={user ? "/become-booster" : "/auth"}
-                data-testid="hero-cta-secondary"
-                className="inline-flex items-center gap-2 border border-white/15 hover:border-brand/40 px-7 py-4 font-semibold rounded-sm transition-colors"
-              >
-                Devenir boosteur
-              </Link>
-            </div>
-            <div className="mt-12 grid grid-cols-3 gap-4 max-w-xl fade-up" style={{ animationDelay: "0.3s" }}>
-              {[
-                { v: "2", l: "Jeux supportés" },
-                { v: "100%", l: "Boosteurs vérifiés" },
-                { v: "0€", l: "Frais cachés" },
-              ].map((s) => (
-                <div key={s.l} className="border-l border-brand/40 pl-4">
-                  <div className="font-display font-black text-2xl">{s.v}</div>
-                  <div className="font-mono-label text-[10px] text-slate-500 mt-1">{s.l}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+        <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "linear-gradient(to bottom, rgba(5,5,7,0.4), rgba(5,5,7,0.7), #050507)" }} />
 
-          <div className="lg:col-span-5 hidden lg:block relative">
-            <div className="relative aspect-square flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full bg-brand/20 blur-3xl" />
-              <img src={LOGO_URL} alt="" className="relative z-10 w-full max-w-md drop-shadow-2xl" />
+        <div style={{ position: "relative", zIndex: 2 }} className="max-w-7xl mx-auto px-4 lg:px-8">
+          <div className="lg:grid lg:grid-cols-12 gap-10 items-center">
+            <div className="lg:col-span-7">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-brand/30 bg-brand/10 rounded-sm mb-8 fade-up">
+                <span className="h-1.5 w-1.5 bg-brand rounded-full pulse-dot" />
+                <span className="font-mono-label text-[10px]">Boosteurs vérifiés · Chat en direct</span>
+              </div>
+              <h1 className="font-display font-black text-5xl sm:text-6xl lg:text-7xl leading-[0.95] tracking-tighter fade-up">
+                Monte de <span className="metallic-text">rank.</span>
+                <br />
+                Sans <span className="text-brand">galérer.</span>
+              </h1>
+              <p className="mt-6 max-w-xl text-slate-400 text-lg leading-relaxed fade-up" style={{ animationDelay: "0.1s" }}>
+                Boosting Service met en relation joueurs et boosteurs pros sur{" "}
+                <span className="text-white font-semibold">Rocket League</span> &{" "}
+                <span className="text-white font-semibold">Valorant</span>. Choisis ton boosteur, lance ta commande, suis
+                la progression en temps réel.
+              </p>
+              <div className="mt-10 flex flex-wrap gap-4 fade-up" style={{ animationDelay: "0.2s" }}>
+                <Link
+                  to={user ? "/games" : "/auth"}
+                  data-testid="hero-cta-primary"
+                  className="group inline-flex items-center gap-2 bg-brand hover:bg-brand-hover transition-all px-7 py-4 font-bold rounded-sm purple-glow"
+                >
+                  {user ? "Voir les jeux" : "Démarrer maintenant"}
+                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                </Link>
+                <Link
+                  to={user ? "/become-booster" : "/auth"}
+                  data-testid="hero-cta-secondary"
+                  className="inline-flex items-center gap-2 border border-white/15 hover:border-brand/40 px-7 py-4 font-semibold rounded-sm transition-colors"
+                >
+                  Devenir boosteur
+                </Link>
+              </div>
+              <div className="mt-12 grid grid-cols-3 gap-4 max-w-xl fade-up" style={{ animationDelay: "0.3s" }}>
+                {[
+                  { v: "2", l: "Jeux supportés" },
+                  { v: "100%", l: "Boosteurs vérifiés" },
+                  { v: "0€", l: "Frais cachés" },
+                ].map((s) => (
+                  <div key={s.l} className="border-l border-brand/40 pl-4">
+                    <div className="font-display font-black text-2xl">{s.v}</div>
+                    <div className="font-mono-label text-[10px] text-slate-500 mt-1">{s.l}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="lg:col-span-5 hidden lg:flex items-center justify-center mt-10 lg:mt-0">
+              <div style={{ position: "relative", width: "100%", maxWidth: "420px" }}>
+                <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "rgba(157,76,221,0.2)", filter: "blur(60px)" }} />
+                <img src={LOGO_URL} alt="" style={{ position: "relative", zIndex: 1, width: "100%", filter: "drop-shadow(0 0 40px rgba(157,76,221,0.4))" }} />
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* HOW IT WORKS */}
-      <section className="relative py-20 border-t border-white/5">
+      <section className="py-20 border-t border-white/5">
         <div className="max-w-7xl mx-auto px-4 lg:px-8">
           <div className="mb-12">
             <div className="font-mono-label text-[11px] text-brand mb-3">— Comment ça marche</div>
@@ -117,29 +117,14 @@ const LandingPage = () => {
           </div>
           <div className="grid md:grid-cols-3 gap-px bg-white/10 border border-white/10">
             {[
-              {
-                n: "01",
-                t: "Choisis ton jeu",
-                d: "Rocket League ou Valorant. Pick ton mode, ton rank actuel et ton objectif.",
-                icon: Gamepad2,
-              },
-              {
-                n: "02",
-                t: "Sélectionne ton boosteur",
-                d: "Notre booster par défaut ou un autre pro vérifié. Tous transparents.",
-                icon: Trophy,
-              },
-              {
-                n: "03",
-                t: "Suis ton boost en live",
-                d: "Chat direct avec ton boosteur. Identifiants transmis de façon sécurisée.",
-                icon: MessageSquare,
-              },
+              { n: "01", t: "Choisis ton jeu", d: "Rocket League ou Valorant. Pick ton mode, ton rank actuel et ton objectif.", icon: Gamepad2 },
+              { n: "02", t: "Sélectionne ton boosteur", d: "Notre booster par défaut ou un autre pro vérifié. Tous transparents.", icon: Trophy },
+              { n: "03", t: "Suis ton boost en live", d: "Chat direct avec ton boosteur. Identifiants transmis de façon sécurisée.", icon: MessageSquare },
             ].map((step) => {
               const Icon = step.icon;
               return (
-                <div key={step.n} className="bg-ink-900 p-8 group hover:bg-ink-800 transition-colors relative">
-                  <div className="font-display font-black text-6xl text-brand/20 absolute top-4 right-6">{step.n}</div>
+                <div key={step.n} className="bg-ink-900 p-8 hover:bg-ink-800 transition-colors" style={{ position: "relative" }}>
+                  <div className="font-display font-black text-6xl text-brand/20" style={{ position: "absolute", top: "1rem", right: "1.5rem" }}>{step.n}</div>
                   <Icon size={22} className="text-brand mb-6" />
                   <h3 className="font-display font-bold text-xl mb-3">{step.t}</h3>
                   <p className="text-slate-400 text-sm leading-relaxed">{step.d}</p>
@@ -151,7 +136,7 @@ const LandingPage = () => {
       </section>
 
       {/* TRUST */}
-      <section className="relative py-20 border-t border-white/5">
+      <section className="py-20 border-t border-white/5">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 grid lg:grid-cols-2 gap-12 items-center">
           <div>
             <ShieldCheck size={32} className="text-brand mb-6" />
@@ -163,8 +148,7 @@ const LandingPage = () => {
               entre eux. Notre rôle : garantir un cadre clair, un chat sécurisé et un point de contact en cas de litige.
             </p>
             <p className="text-slate-500 text-sm leading-relaxed">
-              Le créateur est joignable à tout moment via la plateforme pour toute médiation. Conditions complètes dans
-              les CGU.
+              Le créateur est joignable à tout moment via la plateforme pour toute médiation. Conditions complètes dans les CGU.
             </p>
           </div>
           <div className="border border-white/10 bg-ink-900 p-8 lg:p-10">
@@ -177,7 +161,7 @@ const LandingPage = () => {
                 "Médiation en cas d'incident",
               ].map((p) => (
                 <li key={p} className="flex gap-3 items-start">
-                  <span className="h-1.5 w-1.5 bg-brand rounded-full mt-2.5" />
+                  <span className="h-1.5 w-1.5 bg-brand rounded-full mt-2.5 flex-shrink-0" />
                   <span className="text-slate-200">{p}</span>
                 </li>
               ))}
@@ -186,7 +170,8 @@ const LandingPage = () => {
         </div>
       </section>
 
-      <section className="relative py-20 border-t border-white/5">
+      {/* CTA BOTTOM */}
+      <section className="py-20 border-t border-white/5">
         <div className="max-w-4xl mx-auto px-4 lg:px-8 text-center">
           <h2 className="font-display font-black text-3xl sm:text-5xl tracking-tight mb-6">
             Prêt à <span className="metallic-text">grimper</span> ?

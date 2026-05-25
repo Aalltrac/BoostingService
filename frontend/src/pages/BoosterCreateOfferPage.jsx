@@ -8,38 +8,45 @@ import {
   where,
   getDocs,
   doc,
-  setDoc,
   updateDoc,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../AuthContext";
-import { GAMES, ROCKET_LEAGUE_MODES, VALORANT_RANKS, ROCKET_LEAGUE_RANKS } from "../constants";
+import { GAMES, getFullRanks, getRankTransitions } from "../constants";
 import { toast } from "sonner";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, ChevronDown, ChevronRight } from "lucide-react";
+import ImageUpload from "../components/ImageUpload";
 
 const BoosterCreateOfferPage = () => {
   const { user, profile, isBooster } = useAuth();
   const navigate = useNavigate();
-  const [kind, setKind] = useState("boosting"); // boosting or account
+  const [kind, setKind] = useState("boosting");
   const [game, setGame] = useState("rocket-league");
 
   // Boosting
   const [title, setTitle] = useState("");
-  const [image, setImage] = useState("");
+  const [imageB64, setImageB64] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState("free");
-  const [pricePerRank, setPricePerRank] = useState(5);
   const [donationLinks, setDonationLinks] = useState([{ label: "PayPal", url: "" }]);
   const [maxRankPerMode, setMaxRankPerMode] = useState({});
+  // priceTable[mode][transitionKey] = price (number). RL has many modes; Valorant uses "default".
+  const [priceTable, setPriceTable] = useState({});
+  const [openMode, setOpenMode] = useState(null);
+  const [bulkValue, setBulkValue] = useState({}); // bulk fill input per mode
 
   // Account
   const [accTitle, setAccTitle] = useState("");
-  const [accImage, setAccImage] = useState("");
+  const [accImageB64, setAccImageB64] = useState("");
   const [accDesc, setAccDesc] = useState("");
   const [accPrice, setAccPrice] = useState(20);
 
   const [busy, setBusy] = useState(false);
   const [existing, setExisting] = useState(null);
+
+  const fullRanks = getFullRanks(game);
+  const transitions = getRankTransitions(game);
+  const modes = GAMES[game].modes.length ? GAMES[game].modes : ["default"];
 
   useEffect(() => {
     if (!user || kind !== "boosting") return;
@@ -55,22 +62,42 @@ const BoosterCreateOfferPage = () => {
         const data = d.data();
         setExisting({ id: d.id, ...data });
         setTitle(data.title || "");
-        setImage(data.image || "");
+        setImageB64(data.image || "");
         setDescription(data.description || "");
         setType(data.type || "free");
-        setPricePerRank(data.pricePerRank || 5);
         setDonationLinks(data.donationLinks?.length ? data.donationLinks : [{ label: "PayPal", url: "" }]);
         setMaxRankPerMode(data.maxRankPerMode || {});
+        setPriceTable(data.priceTable || {});
       } else {
         setExisting(null);
         setTitle("");
-        setImage("");
+        setImageB64("");
         setDescription("");
+        setPriceTable({});
+        setMaxRankPerMode({});
       }
+      setOpenMode(modes[0]);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, game, kind]);
 
   if (!isBooster) return <Navigate to="/games" replace />;
+
+  const setPrice = (mode, transitionKey, val) => {
+    setPriceTable((prev) => ({
+      ...prev,
+      [mode]: { ...(prev[mode] || {}), [transitionKey]: val === "" ? "" : Number(val) },
+    }));
+  };
+
+  const bulkApply = (mode) => {
+    const v = Number(bulkValue[mode]);
+    if (isNaN(v)) return;
+    const next = {};
+    transitions.forEach((t) => (next[t.key] = v));
+    setPriceTable((prev) => ({ ...prev, [mode]: next }));
+    toast.success(`Prix uniforme appliqué (${v}€) sur ${mode === "default" ? "Valorant" : mode}.`);
+  };
 
   const saveBoosting = async (e) => {
     e.preventDefault();
@@ -78,7 +105,7 @@ const BoosterCreateOfferPage = () => {
     try {
       const cleanLinks = donationLinks.filter((l) => l.url?.trim());
       if (type === "free" && cleanLinks.length === 0) {
-        toast.error("Au moins un lien de donation requis pour une offre gratuite.");
+        toast.error("Au moins un lien de donation est requis pour une offre gratuite.");
         setBusy(false);
         return;
       }
@@ -87,10 +114,10 @@ const BoosterCreateOfferPage = () => {
         displayName: profile?.displayName || user.email,
         game,
         title: title.trim(),
-        image: image.trim() || null,
+        image: imageB64 || null,
         description: description.trim(),
         type,
-        pricePerRank: type === "paid" ? Number(pricePerRank) : 0,
+        priceTable: type === "paid" ? priceTable : {},
         donationLinks: cleanLinks,
         maxRankPerMode,
         updatedAt: serverTimestamp(),
@@ -100,7 +127,6 @@ const BoosterCreateOfferPage = () => {
       } else {
         await addDoc(collection(db, "boosterOffers"), { ...payload, createdAt: serverTimestamp() });
       }
-      // Save donation links on user profile too
       await updateDoc(doc(db, "users", user.uid), { donationLinks: cleanLinks });
 
       toast.success("Offre enregistrée !");
@@ -122,7 +148,7 @@ const BoosterCreateOfferPage = () => {
         sellerName: profile?.displayName || user.email,
         game,
         title: accTitle.trim(),
-        image: accImage.trim() || null,
+        image: accImageB64 || null,
         description: accDesc.trim(),
         price: Number(accPrice),
         sold: false,
@@ -136,9 +162,6 @@ const BoosterCreateOfferPage = () => {
       setBusy(false);
     }
   };
-
-  const currentRanks = GAMES[game].ranks;
-  const currentModes = GAMES[game].modes;
 
   return (
     <div className="max-w-3xl mx-auto px-4 lg:px-8 py-10">
@@ -186,34 +209,12 @@ const BoosterCreateOfferPage = () => {
               ÉDITION D'UNE OFFRE EXISTANTE
             </div>
           )}
-          <Field label="Titre" testid="offer-title">
-            <input
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              data-testid="offer-title"
-              className="input-base"
-              placeholder={`Boost ${GAMES[game].name} pro`}
-            />
+          <Field label="Titre">
+            <input required value={title} onChange={(e) => setTitle(e.target.value)} data-testid="offer-title" className="input-base" placeholder={`Boost ${GAMES[game].name} pro`} />
           </Field>
-          <Field label="Image (URL)" testid="offer-image">
-            <input
-              value={image}
-              onChange={(e) => setImage(e.target.value)}
-              data-testid="offer-image"
-              className="input-base"
-              placeholder="https://…"
-            />
-          </Field>
-          <Field label="Description" testid="offer-description">
-            <textarea
-              required
-              rows={4}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              data-testid="offer-description"
-              className="input-base"
-            />
+          <ImageUpload label="Image de l'offre" value={imageB64} onChange={setImageB64} testid="offer-image" />
+          <Field label="Description">
+            <textarea required rows={4} value={description} onChange={(e) => setDescription(e.target.value)} data-testid="offer-description" className="input-base" />
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
@@ -232,21 +233,6 @@ const BoosterCreateOfferPage = () => {
             ))}
           </div>
 
-          {type === "paid" && (
-            <Field label="Prix par division (€)" testid="offer-price">
-              <input
-                type="number"
-                min={0}
-                step={0.5}
-                required
-                value={pricePerRank}
-                onChange={(e) => setPricePerRank(e.target.value)}
-                data-testid="offer-price"
-                className="input-base"
-              />
-            </Field>
-          )}
-
           {type === "free" && (
             <div>
               <label className="font-mono-label text-[10px] text-slate-400 block mb-2">
@@ -255,54 +241,96 @@ const BoosterCreateOfferPage = () => {
               <div className="space-y-2">
                 {donationLinks.map((l, i) => (
                   <div key={i} className="flex gap-2">
-                    <input
-                      placeholder="Label"
-                      value={l.label}
-                      onChange={(e) => {
-                        const next = [...donationLinks];
-                        next[i].label = e.target.value;
-                        setDonationLinks(next);
-                      }}
-                      data-testid={`donation-label-${i}`}
-                      className="input-base w-1/3"
-                    />
-                    <input
-                      placeholder="URL"
-                      value={l.url}
-                      onChange={(e) => {
-                        const next = [...donationLinks];
-                        next[i].url = e.target.value;
-                        setDonationLinks(next);
-                      }}
-                      data-testid={`donation-url-${i}`}
-                      className="input-base flex-1"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setDonationLinks(donationLinks.filter((_, idx) => idx !== i))}
-                      className="border border-white/10 hover:border-red-500/40 px-3 rounded-sm"
-                    >
+                    <input placeholder="Label" value={l.label} onChange={(e) => { const n = [...donationLinks]; n[i].label = e.target.value; setDonationLinks(n); }} data-testid={`donation-label-${i}`} className="input-base w-1/3" />
+                    <input placeholder="URL" value={l.url} onChange={(e) => { const n = [...donationLinks]; n[i].url = e.target.value; setDonationLinks(n); }} data-testid={`donation-url-${i}`} className="input-base flex-1" />
+                    <button type="button" onClick={() => setDonationLinks(donationLinks.filter((_, idx) => idx !== i))} className="border border-white/10 hover:border-red-500/40 px-3 rounded-sm">
                       <Trash2 size={14} />
                     </button>
                   </div>
                 ))}
-                <button
-                  type="button"
-                  onClick={() => setDonationLinks([...donationLinks, { label: "", url: "" }])}
-                  data-testid="add-donation-link"
-                  className="inline-flex items-center gap-1 text-sm text-brand hover:text-brand-hover"
-                >
+                <button type="button" onClick={() => setDonationLinks([...donationLinks, { label: "", url: "" }])} data-testid="add-donation-link" className="inline-flex items-center gap-1 text-sm text-brand hover:text-brand-hover">
                   <Plus size={14} /> Ajouter un lien
                 </button>
               </div>
             </div>
           )}
 
+          {type === "paid" && (
+            <div>
+              <label className="font-mono-label text-[10px] text-slate-400 block mb-3">
+                Prix par transition de rank {modes.length > 1 ? "(par mode)" : ""}
+              </label>
+              <div className="border border-white/10 rounded-sm overflow-hidden">
+                {modes.map((m) => (
+                  <div key={m} className="border-b border-white/10 last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => setOpenMode(openMode === m ? null : m)}
+                      data-testid={`toggle-mode-${m}`}
+                      className="w-full p-3 flex items-center justify-between bg-ink-950 hover:bg-ink-800 transition-colors text-sm font-semibold"
+                    >
+                      <span>{m === "default" ? GAMES[game].name : m}</span>
+                      {openMode === m ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </button>
+                    {openMode === m && (
+                      <div className="bg-ink-950/50 p-4 space-y-3">
+                        <div className="flex gap-2 items-end">
+                          <div className="flex-1">
+                            <label className="font-mono-label text-[10px] text-slate-500 block mb-1">Remplir tous les prix avec</label>
+                            <input
+                              type="number"
+                              min={0}
+                              step={0.5}
+                              value={bulkValue[m] || ""}
+                              onChange={(e) => setBulkValue({ ...bulkValue, [m]: e.target.value })}
+                              data-testid={`bulk-input-${m}`}
+                              className="input-base"
+                              placeholder="ex: 5"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => bulkApply(m)}
+                            data-testid={`bulk-apply-${m}`}
+                            className="border border-brand/40 hover:bg-brand/20 px-4 py-2 text-xs font-bold rounded-sm whitespace-nowrap"
+                          >
+                            Appliquer
+                          </button>
+                        </div>
+                        <div className="grid sm:grid-cols-2 gap-2 max-h-80 overflow-y-auto pr-2">
+                          {transitions.map((t) => (
+                            <div key={t.key} className="flex items-center gap-2">
+                              <div className="text-[11px] text-slate-400 flex-1 font-mono-label">{t.key}</div>
+                              <input
+                                type="number"
+                                min={0}
+                                step={0.5}
+                                value={priceTable[m]?.[t.key] ?? ""}
+                                onChange={(e) => setPrice(m, t.key, e.target.value)}
+                                data-testid={`price-${m}-${t.key}`}
+                                className="input-base w-20 text-xs"
+                                placeholder="0"
+                              />
+                              <span className="text-[10px] text-slate-500">€</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-2">
+                Astuce : laisse vide pour les transitions que tu ne veux pas booster (elles seront indisponibles).
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="font-mono-label text-[10px] text-slate-400 block mb-2">
-              Rank maximum {currentModes.length ? "par mode" : ""}
+              Rank maximum {modes.length > 1 ? "par mode" : ""}
             </label>
-            {currentModes.length === 0 ? (
+            {modes.length === 1 && modes[0] === "default" ? (
               <select
                 value={maxRankPerMode["default"] || ""}
                 onChange={(e) => setMaxRankPerMode({ default: e.target.value })}
@@ -310,13 +338,13 @@ const BoosterCreateOfferPage = () => {
                 className="input-base"
               >
                 <option value="">Aucune limite</option>
-                {currentRanks.map((r) => (
-                  <option key={r}>{r}</option>
+                {fullRanks.map((r) => (
+                  <option key={r.label}>{r.label}</option>
                 ))}
               </select>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                {currentModes.map((m) => (
+                {modes.map((m) => (
                   <div key={m}>
                     <div className="text-xs text-slate-500 mb-1">{m}</div>
                     <select
@@ -326,8 +354,8 @@ const BoosterCreateOfferPage = () => {
                       className="input-base text-xs"
                     >
                       <option value="">Aucune limite</option>
-                      {currentRanks.map((r) => (
-                        <option key={r}>{r}</option>
+                      {fullRanks.map((r) => (
+                        <option key={r.label}>{r.label}</option>
                       ))}
                     </select>
                   </div>
@@ -345,39 +373,24 @@ const BoosterCreateOfferPage = () => {
             {busy ? "Enregistrement…" : existing ? "Mettre à jour l'offre" : "Créer l'offre"}
           </button>
 
-          <style>{`.input-base{width:100%;background:#050507;border:1px solid rgba(255,255,255,0.1);padding:.7rem .85rem;font-size:.85rem;border-radius:2px;outline:none;color:#fff}.input-base:focus{border-color:#9D4CDD}`}</style>
+          <style>{`.input-base{width:100%;background:#050507;border:1px solid rgba(255,255,255,0.1);padding:.55rem .85rem;font-size:.85rem;border-radius:2px;outline:none;color:#fff}.input-base:focus{border-color:#9D4CDD}`}</style>
         </form>
       ) : (
         <form onSubmit={saveAccount} className="space-y-5 border border-white/10 bg-ink-900 p-6 rounded-sm" data-testid="account-offer-form">
           <Field label="Titre">
             <input required value={accTitle} onChange={(e) => setAccTitle(e.target.value)} className="input-base" data-testid="acc-title" />
           </Field>
-          <Field label="Image (URL)">
-            <input value={accImage} onChange={(e) => setAccImage(e.target.value)} className="input-base" data-testid="acc-image" />
-          </Field>
+          <ImageUpload label="Image du compte" value={accImageB64} onChange={setAccImageB64} testid="acc-image" />
           <Field label="Description">
             <textarea required rows={4} value={accDesc} onChange={(e) => setAccDesc(e.target.value)} className="input-base" data-testid="acc-desc" />
           </Field>
           <Field label="Prix (€)">
-            <input
-              type="number"
-              min={0}
-              required
-              value={accPrice}
-              onChange={(e) => setAccPrice(e.target.value)}
-              className="input-base"
-              data-testid="acc-price"
-            />
+            <input type="number" min={0} required value={accPrice} onChange={(e) => setAccPrice(e.target.value)} className="input-base" data-testid="acc-price" />
           </Field>
-          <button
-            type="submit"
-            disabled={busy}
-            data-testid="save-account-btn"
-            className="w-full bg-brand hover:bg-brand-hover py-3 font-bold rounded-sm purple-glow disabled:opacity-50"
-          >
+          <button type="submit" disabled={busy} data-testid="save-account-btn" className="w-full bg-brand hover:bg-brand-hover py-3 font-bold rounded-sm purple-glow disabled:opacity-50">
             {busy ? "Enregistrement…" : "Mettre en vente"}
           </button>
-          <style>{`.input-base{width:100%;background:#050507;border:1px solid rgba(255,255,255,0.1);padding:.7rem .85rem;font-size:.85rem;border-radius:2px;outline:none;color:#fff}.input-base:focus{border-color:#9D4CDD}`}</style>
+          <style>{`.input-base{width:100%;background:#050507;border:1px solid rgba(255,255,255,0.1);padding:.55rem .85rem;font-size:.85rem;border-radius:2px;outline:none;color:#fff}.input-base:focus{border-color:#9D4CDD}`}</style>
         </form>
       )}
     </div>

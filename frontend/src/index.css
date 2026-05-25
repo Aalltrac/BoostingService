@@ -6,8 +6,9 @@
 @tailwind utilities;
 
 #root {
-  width: 100% !important;
+  width: 100vw !important;
   max-width: 100vw !important;
+  position: relative;
 }
 
 /* Ajouter ces resets CRITIQUES après les tailwind directives */

@@ -20,8 +20,8 @@ const HomePage = () => {
   const games = Object.values(GAMES);
 
   const trustStats = [
-    { v: "12 480+", l: "Commandes livrées" },
-    { v: "4.9/5", l: "Note moyenne" },
+    { v: "60", l: "Commandes livrées" },
+    { v: "5/5", l: "Note moyenne" },
     { v: "< 2 min", l: "Temps de réponse" },
   ];
 

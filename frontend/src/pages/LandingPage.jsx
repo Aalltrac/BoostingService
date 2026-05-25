@@ -49,7 +49,7 @@ const LandingPage = () => {
           style={{ backgroundImage: `url(${HERO_BG})` }}
         />
         <div className="absolute inset-0 z-10 bg-gradient-to-b from-ink-950/40 via-ink-950/70 to-ink-950" />
-        <div className="relative z-20 max-w-7xl mx-auto px-4 lg:px-8 grid lg:grid-cols-12 gap-10 items-center">
+        <div className="relative z-20 max-w-7xl mx-auto px-4 lg:px-8 grid lg:grid-cols-12 gap-10 items-center min-h-0">
           <div className="lg:col-span-7">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-brand/30 bg-brand/10 rounded-sm mb-8 fade-up">
               <span className="h-1.5 w-1.5 bg-brand rounded-full pulse-dot" />

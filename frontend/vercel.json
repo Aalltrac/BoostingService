@@ -1,12 +1,8 @@
 {
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
-  "buildCommand": "yarn build",
+  "buildCommand": "craco build",
   "outputDirectory": "build",
-  "installCommand": "yarn install",
-  "framework": "create-react-app"
+  "installCommand": "yarn install"
 }

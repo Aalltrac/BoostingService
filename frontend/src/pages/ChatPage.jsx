@@ -229,8 +229,7 @@ const ChatPage = () => {
           const bData = bSnap.data() || {};
           const links = bData.donationLinks || [];
           const linksTxt = links.length
-            ? links.map((l) => `${l.label || "Lien"} : ${l.url}`).join("
-")
+            ? links.map((l) => `${l.label || "Lien"} : ${l.url}`).join("")
             : "Aucun lien de donation renseigné.";
           await addDoc(
             collection(db, "conversations", conversationId, "messages"),
@@ -251,8 +250,7 @@ N'oublie pas de laisser un avis pour ton boosteur ⭐`,
           const com = (price * rate).toFixed(2);
           const linksTxt = CREATOR_DONATION_LINKS.map(
             (l) => `${l.label} : ${l.url}`
-          ).join("
-");
+          ).join("");
           await addDoc(
             collection(db, "conversations", conversationId, "messages"),
             {
@@ -274,8 +272,7 @@ N'oublie pas de laisser un avis pour ton boosteur ⭐`,
         const com = (price * rate).toFixed(2);
         const linksTxt = CREATOR_DONATION_LINKS.map(
           (l) => `${l.label} : ${l.url}`
-        ).join("
-");
+        ).join("");
         await addDoc(
           collection(db, "conversations", conversationId, "messages"),
           {

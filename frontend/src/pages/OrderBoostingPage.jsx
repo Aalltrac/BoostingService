@@ -27,7 +27,10 @@ import {
   Sparkles,
   Gamepad2,
   TrendingUp,
+  Image as ImageIcon,
+  FileText,
 } from "lucide-react";
+import RatingDisplay from "../components/RatingDisplay";
 
 const OrderBoostingPage = () => {
   const { gameId, boosterUid } = useParams();
@@ -134,6 +137,7 @@ const OrderBoostingPage = () => {
         status: "pending",
         credentials: { email: accEmail, password: accPassword },
         conversationId: convRef.id,
+        boostStatus: { connected: false, currentRank: ranks[rankFrom].label },
         createdAt: serverTimestamp(),
       });
 
@@ -174,7 +178,7 @@ Mot de passe : ${accPassword}`;
       <div className="border-b border-white/5">
         <div className="max-w-5xl mx-auto px-6 py-5">
           <Link
-            to={`/game/${gameId}`}
+            to={`/games/${gameId}`}
             data-testid="back-link"
             className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
           >
@@ -186,7 +190,7 @@ Mot de passe : ${accPassword}`;
 
       <div className="max-w-5xl mx-auto px-6 py-10">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8">
           <div>
             <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-brand mb-3">
               <Gamepad2 className="w-3.5 h-3.5" />
@@ -213,6 +217,62 @@ Mot de passe : ${accPassword}`;
             </div>
           )}
         </div>
+
+        {/* ─────────── OFFER PRESENTATION (image + description) ─────────── */}
+        {boosterOffer && (
+          <div
+            data-testid="offer-presentation"
+            className="grid md:grid-cols-5 gap-6 mb-10"
+          >
+            <div className="md:col-span-3">
+              <div className="relative aspect-video bg-ink-700 overflow-hidden rounded-sm border border-white/10">
+                {boosterOffer.image ? (
+                  <img
+                    src={boosterOffer.image}
+                    alt={boosterOffer.title}
+                    className="w-full h-full object-cover"
+                    data-testid="offer-image"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-700">
+                    <ImageIcon className="w-10 h-10" />
+                  </div>
+                )}
+                <div className="absolute top-3 left-3 bg-ink-900/90 backdrop-blur-sm border border-white/10 px-2.5 py-1 rounded-sm">
+                  <span className="font-mono-label text-[10px] text-brand">
+                    — Offre boosting
+                  </span>
+                </div>
+              </div>
+
+              {boosterOffer.description && (
+                <div className="mt-6 border border-white/10 bg-ink-900 p-6 rounded-sm">
+                  <div className="font-mono-label text-[10px] text-slate-500 mb-3 flex items-center gap-2">
+                    <FileText className="w-3 h-3" />— Description
+                  </div>
+                  <h2
+                    data-testid="offer-title"
+                    className="font-display font-bold text-lg mb-2"
+                  >
+                    {boosterOffer.title}
+                  </h2>
+                  <p
+                    data-testid="offer-description"
+                    className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap"
+                  >
+                    {boosterOffer.description}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <aside className="md:col-span-2">
+              <div className="border border-white/10 bg-ink-900 p-6 rounded-sm">
+                <RatingDisplay boosterUid={boosterUid} />
+              </div>
+            </aside>
+          </div>
+        )}
 
         {/* Stepper */}
         <div className="mb-10">
@@ -266,7 +326,6 @@ Mot de passe : ${accPassword}`;
 
         {/* CONTENT GRID */}
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Main column */}
           <div className="lg:col-span-2">
             {step === 1 && (
               <Card>
@@ -338,7 +397,6 @@ Mot de passe : ${accPassword}`;
                     </div>
                   </div>
 
-                  {/* Progress visual */}
                   <div className="border border-white/10 bg-white/[0.02] rounded-sm p-4">
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex-1 min-w-0">
@@ -371,8 +429,7 @@ Mot de passe : ${accPassword}`;
                           );
                           if (!t) return null;
                           const p = priceTableForMode[t.key];
-                          const has =
-                            p !== undefined && p !== "" && p !== null;
+                          const has = p !== undefined && p !== "" && p !== null;
                           return (
                             <div
                               key={t.key}
@@ -403,14 +460,12 @@ Mot de passe : ${accPassword}`;
                         {exceedsMax && (
                           <p>
                             Ce boosteur ne dépasse pas{" "}
-                            <strong className="text-white">{maxRankLabel}</strong>{" "}
-                            sur ce mode.
+                            <strong className="text-white">{maxRankLabel}</strong> sur ce mode.
                           </p>
                         )}
                         {missingTransitions.length > 0 && (
                           <p>
-                            Certaines transitions ne sont pas proposées par ce
-                            boosteur.
+                            Certaines transitions ne sont pas proposées par ce boosteur.
                           </p>
                         )}
                       </div>
@@ -446,9 +501,7 @@ Mot de passe : ${accPassword}`;
 
                 <div className="p-6 space-y-5">
                   <div>
-                    <Label icon={<Mail className="w-3.5 h-3.5" />}>
-                      Email du compte
-                    </Label>
+                    <Label icon={<Mail className="w-3.5 h-3.5" />}>Email du compte</Label>
                     <input
                       type="email"
                       value={accEmail}
@@ -460,9 +513,7 @@ Mot de passe : ${accPassword}`;
                   </div>
 
                   <div>
-                    <Label icon={<KeyRound className="w-3.5 h-3.5" />}>
-                      Mot de passe du compte
-                    </Label>
+                    <Label icon={<KeyRound className="w-3.5 h-3.5" />}>Mot de passe du compte</Label>
                     <input
                       type="password"
                       value={accPassword}
@@ -476,8 +527,7 @@ Mot de passe : ${accPassword}`;
                   <div className="flex gap-3 items-start text-xs text-slate-400 border border-white/5 bg-white/[0.02] rounded-sm p-3">
                     <Shield className="w-4 h-4 text-brand shrink-0 mt-0.5" />
                     <span>
-                      Tes identifiants sont chiffrés et ne sont visibles que par
-                      ton boosteur et le créateur de la plateforme.
+                      Tes identifiants sont chiffrés et ne sont visibles que par ton boosteur et le créateur de la plateforme.
                     </span>
                   </div>
                 </div>
@@ -518,15 +568,8 @@ Mot de passe : ${accPassword}`;
                     {game?.modes.length > 0 && <Item k="Mode" v={mode} />}
                     <Item k="Rank actuel" v={ranks[rankFrom]?.label} />
                     <Item k="Rank souhaité" v={ranks[rankTo]?.label} />
-                    <Item
-                      k="Boosteur"
-                      v={boosterUser?.displayName || "Boosteur"}
-                    />
-                    <Item
-                      k="Email du compte"
-                      v={accEmail}
-                      mono
-                    />
+                    <Item k="Boosteur" v={boosterUser?.displayName || "Boosteur"} />
+                    <Item k="Email du compte" v={accEmail} mono />
                     <Item
                       k="Mot de passe"
                       v={"•".repeat(Math.min(accPassword.length, 12))}
@@ -563,7 +606,6 @@ Mot de passe : ${accPassword}`;
             )}
           </div>
 
-          {/* Sidebar - Summary */}
           <aside className="lg:col-span-1">
             <div className="sticky top-6 space-y-4">
               <Card>
@@ -577,14 +619,8 @@ Mot de passe : ${accPassword}`;
                     {game?.modes.length > 0 && (
                       <SummaryRow label="Mode" value={mode} />
                     )}
-                    <SummaryRow
-                      label="Départ"
-                      value={ranks[rankFrom]?.label}
-                    />
-                    <SummaryRow
-                      label="Objectif"
-                      value={ranks[rankTo]?.label}
-                    />
+                    <SummaryRow label="Départ" value={ranks[rankFrom]?.label} />
+                    <SummaryRow label="Objectif" value={ranks[rankTo]?.label} />
                   </div>
 
                   <div className="border-t border-white/5 mt-5 pt-5 flex items-end justify-between">
@@ -604,8 +640,7 @@ Mot de passe : ${accPassword}`;
               <div className="flex items-start gap-3 text-xs text-slate-400 px-1">
                 <Shield className="w-4 h-4 text-brand shrink-0 mt-0.5" />
                 <span>
-                  Paiement sécurisé. Aucun débit avant l'acceptation par le
-                  boosteur.
+                  Paiement sécurisé. Aucun débit avant l'acceptation par le boosteur.
                 </span>
               </div>
             </div>
@@ -615,8 +650,6 @@ Mot de passe : ${accPassword}`;
     </div>
   );
 };
-
-/* -------- Subcomponents -------- */
 
 const Card = ({ children }) => (
   <div className="bg-white/[0.02] border border-white/10 rounded-sm overflow-hidden">

@@ -28,9 +28,15 @@ import {
   ArrowLeft,
   Lock,
   Eye,
+  ImagePlus,
+  X,
+  Star,
 } from "lucide-react";
 import { toast } from "sonner";
- 
+import { fileToCompressedBase64 } from "../components/ImageUpload";
+import RatingModal from "../components/RatingModal";
+import BoostStatusPanel from "../components/BoostStatusPanel";
+
 const ChatPage = () => {
   const { conversationId } = useParams();
   const { user, isCreator } = useAuth();
@@ -39,10 +45,16 @@ const ChatPage = () => {
   const [text, setText] = useState("");
   const [participants, setParticipants] = useState({});
   const [order, setOrder] = useState(null);
+  const [orderDocId, setOrderDocId] = useState(null);
   const [sending, setSending] = useState(false);
+  const [pendingImage, setPendingImage] = useState(""); // base64 staged
+  const [uploading, setUploading] = useState(false);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [lightboxImg, setLightboxImg] = useState(null);
   const endRef = useRef(null);
   const inputRef = useRef(null);
- 
+  const fileRef = useRef(null);
+
   useEffect(() => {
     const unsubConv = onSnapshot(doc(db, "conversations", conversationId), (s) => {
       if (s.exists()) setConv({ id: s.id, ...s.data() });
@@ -59,9 +71,11 @@ const ChatPage = () => {
       unsubMsg();
     };
   }, [conversationId]);
- 
+
+  // Subscribe to order so we get live boostStatus + rating + status
   useEffect(() => {
     if (!conv) return;
+    let unsubOrder = null;
     (async () => {
       const map = {};
       for (const uid of conv.participants || []) {
@@ -69,25 +83,42 @@ const ChatPage = () => {
         if (s.exists()) map[uid] = s.data();
       }
       setParticipants(map);
- 
+
       const oq = query(
         collection(db, "orders"),
         where("conversationId", "==", conversationId)
       );
       const os = await getDocs(oq);
-      if (!os.empty) setOrder({ id: os.docs[0].id, ...os.docs[0].data() });
+      if (!os.empty) {
+        const id = os.docs[0].id;
+        setOrderDocId(id);
+        unsubOrder = onSnapshot(doc(db, "orders", id), (s) => {
+          if (s.exists()) setOrder({ id: s.id, ...s.data() });
+        });
+      }
     })();
+    return () => {
+      if (unsubOrder) unsubOrder();
+    };
   }, [conv, conversationId]);
- 
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
- 
+
   const allowed = conv && (conv.participants?.includes(user.uid) || isCreator);
   const isClient = conv?.clientUid === user?.uid;
   const isBooster = conv?.boosterUid === user?.uid;
   const readOnly = isCreator && !isClient && !isBooster;
- 
+
+  // Show rating modal once when order completes and client hasn't rated yet
+  useEffect(() => {
+    if (!order) return;
+    if (order.status === "completed" && isClient && !order.rating) {
+      setShowRatingModal(true);
+    }
+  }, [order?.status, order?.rating, isClient]); // eslint-disable-line
+
   const grouped = useMemo(() => {
     const groups = [];
     let currentKey = null;
@@ -108,7 +139,7 @@ const ChatPage = () => {
     }
     return groups;
   }, [messages]);
- 
+
   if (conv && !allowed)
     return (
       <div className="min-h-screen bg-ink-950 text-white/90 flex items-center justify-center p-6">
@@ -133,22 +164,49 @@ const ChatPage = () => {
         </div>
       </div>
     );
- 
+
+  const handlePickImage = () => fileRef.current?.click();
+
+  const handleFile = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Format invalide. Utilise une image.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Image trop lourde (max 8 Mo).");
+      return;
+    }
+    setUploading(true);
+    try {
+      // Larger maxSize for chat (clearer screenshots)
+      const b64 = await fileToCompressedBase64(file, 1200, 0.8);
+      setPendingImage(b64);
+    } catch (e) {
+      toast.error("Erreur de lecture de l'image.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const send = async (e) => {
     e?.preventDefault?.();
-    if (!text.trim() || sending) return;
     const value = text.trim();
+    if ((!value && !pendingImage) || sending) return;
     setText("");
+    const img = pendingImage;
+    setPendingImage("");
     setSending(true);
     try {
       await addDoc(collection(db, "conversations", conversationId, "messages"), {
         senderUid: user.uid,
         senderName: participants[user.uid]?.displayName || user.email,
         text: value,
+        image: img || null,
         createdAt: serverTimestamp(),
       });
       await updateDoc(doc(db, "conversations", conversationId), {
-        lastMessage: value.slice(0, 80),
+        lastMessage: img ? (value ? value.slice(0, 80) : "📷 Image") : value.slice(0, 80),
         updatedAt: serverTimestamp(),
       });
     } finally {
@@ -156,7 +214,7 @@ const ChatPage = () => {
       inputRef.current?.focus();
     }
   };
- 
+
   const markCompleted = async () => {
     if (!order) return;
     try {
@@ -164,21 +222,26 @@ const ChatPage = () => {
         status: "completed",
         completedAt: serverTimestamp(),
       });
- 
+
       if (order.type === "boosting") {
         if (order.offerType === "free") {
           const bSnap = await getDoc(doc(db, "users", order.boosterUid));
           const bData = bSnap.data() || {};
           const links = bData.donationLinks || [];
           const linksTxt = links.length
-            ? links.map((l) => `${l.label || "Lien"} : ${l.url}`).join("\n")
+            ? links.map((l) => `${l.label || "Lien"} : ${l.url}`).join("
+")
             : "Aucun lien de donation renseigné.";
           await addDoc(
             collection(db, "conversations", conversationId, "messages"),
             {
               senderUid: "system",
               system: true,
-              text: `Boost terminé !\nSi tu veux soutenir ton boosteur, voici ses liens de donation :\n${linksTxt}`,
+              text: `Boost terminé !
+Si tu veux soutenir ton boosteur, voici ses liens de donation :
+${linksTxt}
+
+N'oublie pas de laisser un avis pour ton boosteur ⭐`,
               createdAt: serverTimestamp(),
             }
           );
@@ -188,13 +251,19 @@ const ChatPage = () => {
           const com = (price * rate).toFixed(2);
           const linksTxt = CREATOR_DONATION_LINKS.map(
             (l) => `${l.label} : ${l.url}`
-          ).join("\n");
+          ).join("
+");
           await addDoc(
             collection(db, "conversations", conversationId, "messages"),
             {
               senderUid: "system",
               system: true,
-              text: `Commande ${order.id} terminée.\nMontant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€\nMerci de verser la commission via :\n${linksTxt}`,
+              text: `Commande ${order.id} terminée.
+Montant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€
+Merci de verser la commission via :
+${linksTxt}
+
+N'oublie pas de laisser un avis pour ton boosteur ⭐`,
               createdAt: serverTimestamp(),
             }
           );
@@ -205,13 +274,19 @@ const ChatPage = () => {
         const com = (price * rate).toFixed(2);
         const linksTxt = CREATOR_DONATION_LINKS.map(
           (l) => `${l.label} : ${l.url}`
-        ).join("\n");
+        ).join("
+");
         await addDoc(
           collection(db, "conversations", conversationId, "messages"),
           {
             senderUid: "system",
             system: true,
-            text: `Vente terminée.\nMontant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€\nMerci de verser la commission via :\n${linksTxt}`,
+            text: `Vente terminée.
+Montant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€
+Merci de verser la commission via :
+${linksTxt}
+
+N'oublie pas de laisser un avis pour ton vendeur ⭐`,
             createdAt: serverTimestamp(),
           }
         );
@@ -221,22 +296,18 @@ const ChatPage = () => {
           });
         }
       }
- 
+
       toast.success("Marqué comme terminé !");
     } catch (e) {
       toast.error(e.message);
     }
   };
- 
-  const title =
-    (conv?.type === "account_sale" ? "Vente de compte" : "Boosting") +
-    (conv?.game ? ` — ${conv.game}` : "");
- 
+
   const peopleLine = Object.values(participants)
     .map((p) => p?.displayName)
     .filter(Boolean)
     .join(" ↔ ");
- 
+
   const initialsFor = (uid) => {
     const name =
       participants[uid]?.displayName || participants[uid]?.email || "?";
@@ -247,7 +318,7 @@ const ChatPage = () => {
       .map((s) => s[0]?.toUpperCase())
       .join("");
   };
- 
+
   return (
     <div className="min-h-screen bg-ink-950 text-white/90 flex flex-col">
       {/* Header */}
@@ -264,7 +335,7 @@ const ChatPage = () => {
             <ArrowLeft className="h-3.5 w-3.5" />
             Tableau de bord
           </Link>
- 
+
           <div className="mt-3 flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -285,7 +356,7 @@ const ChatPage = () => {
                 </p>
               )}
             </div>
- 
+
             <div className="shrink-0 flex items-center gap-2">
               {readOnly && (
                 <span
@@ -316,23 +387,43 @@ const ChatPage = () => {
                   Terminé
                 </span>
               )}
+              {order?.status === "completed" && isClient && !order.rating && (
+                <button
+                  type="button"
+                  onClick={() => setShowRatingModal(true)}
+                  data-testid="open-rating-btn"
+                  className="inline-flex items-center gap-1.5 border border-amber-400/40 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20 transition-colors px-3 py-1.5 text-xs font-medium rounded-sm"
+                >
+                  <Star className="h-3.5 w-3.5" />
+                  Laisser un avis
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Boost status panel (only for boosting orders not completed) */}
+          {order && order.type === "boosting" && order.status !== "completed" && (
+            <div className="mt-4">
+              <BoostStatusPanel
+                order={order}
+                conversationId={conversationId}
+                isBooster={isBooster}
+                isClient={isClient}
+              />
+            </div>
+          )}
         </div>
       </header>
- 
+
       {/* Messages */}
-      <main
-        data-testid="chat-messages"
-        className="flex-1 overflow-y-auto"
-      >
+      <main data-testid="chat-messages" className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 py-6 space-y-1.5">
           {grouped.length === 0 && (
             <div className="py-16 text-center text-sm text-white/40">
               Aucun message pour l'instant. Lance la conversation ci-dessous.
             </div>
           )}
- 
+
           {grouped.map((item, i) => {
             if (item.type === "date") {
               return (
@@ -348,9 +439,9 @@ const ChatPage = () => {
                 </div>
               );
             }
- 
+
             const m = item.data;
- 
+
             if (m.system) {
               return (
                 <div
@@ -366,14 +457,14 @@ const ChatPage = () => {
                 </div>
               );
             }
- 
+
             const mine = m.senderUid === user.uid;
             const time =
               m.createdAt?.toDate?.().toLocaleTimeString("fr-FR", {
                 hour: "2-digit",
                 minute: "2-digit",
               }) || "";
- 
+
             return (
               <div
                 key={m.id}
@@ -387,7 +478,7 @@ const ChatPage = () => {
                     {initialsFor(m.senderUid) || "?"}
                   </div>
                 )}
- 
+
                 <div
                   className={`group max-w-[78%] sm:max-w-[70%] px-3.5 py-2 rounded-sm text-sm leading-relaxed whitespace-pre-line transition-colors ${
                     mine
@@ -400,7 +491,21 @@ const ChatPage = () => {
                       {m.senderName || "User"}
                     </div>
                   )}
-                  <div>{m.text}</div>
+                  {m.image && (
+                    <button
+                      type="button"
+                      onClick={() => setLightboxImg(m.image)}
+                      data-testid="msg-image"
+                      className="block mb-1.5 rounded-sm overflow-hidden border border-black/10 hover:opacity-90 transition-opacity"
+                    >
+                      <img
+                        src={m.image}
+                        alt="Pièce jointe"
+                        className="max-h-80 max-w-full object-cover"
+                      />
+                    </button>
+                  )}
+                  {m.text && <div>{m.text}</div>}
                   {time && (
                     <div
                       className={`mt-1 text-[10px] tabular-nums ${
@@ -417,7 +522,7 @@ const ChatPage = () => {
           <div ref={endRef} />
         </div>
       </main>
- 
+
       {/* Composer */}
       <footer className="sticky bottom-0 border-t border-white/10 bg-ink-950/85 backdrop-blur supports-[backdrop-filter]:bg-ink-950/70">
         <form
@@ -425,6 +530,28 @@ const ChatPage = () => {
           data-testid="chat-form"
           className="mx-auto max-w-3xl px-4 sm:px-6 py-3.5"
         >
+          {pendingImage && (
+            <div
+              data-testid="image-preview"
+              className="relative inline-block mb-2 border border-white/10 rounded-sm overflow-hidden bg-white/[0.02]"
+            >
+              <img
+                src={pendingImage}
+                alt="Aperçu"
+                className="max-h-32 object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => setPendingImage("")}
+                data-testid="remove-pending-image"
+                className="absolute top-1.5 right-1.5 bg-ink-950/90 border border-white/20 hover:border-red-500/50 p-1 rounded-sm"
+                aria-label="Retirer l'image"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+
           <div
             className={`flex items-center gap-2 border rounded-sm px-2 transition-colors ${
               readOnly
@@ -432,20 +559,42 @@ const ChatPage = () => {
                 : "border-white/10 bg-ink-950 focus-within:border-brand"
             }`}
           >
+            <button
+              type="button"
+              onClick={handlePickImage}
+              disabled={readOnly || uploading}
+              data-testid="chat-attach-btn"
+              aria-label="Joindre une image"
+              className="p-2 text-slate-400 hover:text-brand disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ImagePlus className="h-4 w-4" />
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files?.[0])}
+              data-testid="chat-image-input"
+            />
             <input
               ref={inputRef}
               value={text}
               onChange={(e) => setText(e.target.value)}
               data-testid="chat-input"
               placeholder={
-                readOnly ? "Mode lecture (créateur)" : "Écris ton message…"
+                uploading
+                  ? "Compression de l'image…"
+                  : readOnly
+                  ? "Mode lecture (créateur)"
+                  : "Écris ton message…"
               }
               disabled={readOnly}
               className="flex-1 bg-transparent focus:outline-none px-2 py-2.5 text-sm placeholder:text-white/35 disabled:cursor-not-allowed"
             />
             <button
               type="submit"
-              disabled={readOnly || !text.trim() || sending}
+              disabled={readOnly || (!text.trim() && !pendingImage) || sending}
               data-testid="chat-send-btn"
               aria-label="Envoyer"
               className="inline-flex items-center gap-1.5 bg-brand text-ink-950 hover:bg-brand/90 active:bg-brand/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors px-3 py-2 text-xs font-medium rounded-sm"
@@ -455,12 +604,45 @@ const ChatPage = () => {
             </button>
           </div>
           <p className="mt-2 text-[10px] text-white/35 px-1">
-            Entrée pour envoyer · Les messages sont conservés dans la conversation.
+            Entrée pour envoyer · Images jusqu'à 8 Mo (auto-compressées).
           </p>
         </form>
       </footer>
+
+      {/* Lightbox */}
+      {lightboxImg && (
+        <div
+          data-testid="image-lightbox"
+          onClick={() => setLightboxImg(null)}
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
+        >
+          <img
+            src={lightboxImg}
+            alt="Pièce jointe"
+            className="max-h-[92vh] max-w-[92vw] object-contain"
+          />
+          <button
+            type="button"
+            onClick={() => setLightboxImg(null)}
+            className="absolute top-4 right-4 p-2 bg-ink-950/80 border border-white/20 rounded-sm"
+            aria-label="Fermer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Rating modal */}
+      {showRatingModal && order && (
+        <RatingModal
+          order={order}
+          conversationId={conversationId}
+          onClose={() => setShowRatingModal(false)}
+          onSubmitted={() => setShowRatingModal(false)}
+        />
+      )}
     </div>
   );
 };
- 
+
 export default ChatPage;

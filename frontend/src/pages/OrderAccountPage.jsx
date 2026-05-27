@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   doc,
@@ -17,7 +17,8 @@ import {
   MessageSquare,
   ChevronRight,
 } from "lucide-react";
-import RatingDisplay from "../components/RatingDisplay";
+import RatingDisplay from "../components/RatingDisplay_v2";
+import ImageCarousel from "../components/ImageCarousel";
 
 const OrderAccountPage = () => {
   const { listingId } = useParams();
@@ -38,6 +39,13 @@ const OrderAccountPage = () => {
       }
     })();
   }, [listingId]);
+
+  const listingImages = useMemo(() => {
+    if (!listing) return [];
+    if (Array.isArray(listing.images) && listing.images.length > 0)
+      return listing.images;
+    return listing.image ? [listing.image] : [];
+  }, [listing]);
 
   const buy = async () => {
     setBusy(true);
@@ -128,28 +136,12 @@ Le client souhaite finaliser l'achat. Échange en direct ci-dessous.`,
       </nav>
 
       <div className="grid md:grid-cols-5 gap-8">
-        {/* Image + description + reviews */}
         <div className="md:col-span-3">
-          <div className="relative aspect-video bg-ink-700 overflow-hidden rounded-sm border border-white/10">
-            {listing.image ? (
-              <img
-                src={listing.image}
-                alt={listing.title}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <span className="font-mono-label text-[11px] text-slate-600">
-                  — Aucune image
-                </span>
-              </div>
-            )}
-            <div className="absolute top-3 left-3 bg-ink-900/90 backdrop-blur-sm border border-white/10 px-2.5 py-1 rounded-sm">
-              <span className="font-mono-label text-[10px] text-brand">
-                — Vente de compte
-              </span>
-            </div>
-          </div>
+          <ImageCarousel
+            images={listingImages}
+            badge="— Vente de compte"
+            testid="account-carousel"
+          />
 
           <div className="mt-6 border border-white/10 bg-ink-900 p-6 rounded-sm">
             <div className="font-mono-label text-[10px] text-slate-500 mb-3">
@@ -160,13 +152,11 @@ Le client souhaite finaliser l'achat. Échange en direct ci-dessous.`,
             </p>
           </div>
 
-          {/* Seller reviews block */}
           <div className="mt-6 border border-white/10 bg-ink-900 p-6 rounded-sm">
             <RatingDisplay boosterUid={listing.uid} />
           </div>
         </div>
 
-        {/* Sidebar achat */}
         <aside className="md:col-span-2">
           <div className="md:sticky md:top-6 border border-white/10 bg-ink-900 p-6 lg:p-7 rounded-sm">
             <div className="font-mono-label text-[10px] text-slate-500 mb-3">
@@ -266,7 +256,8 @@ Le client souhaite finaliser l'achat. Échange en direct ci-dessous.`,
             </ul>
 
             <p className="text-[11px] text-slate-500 mt-6 leading-relaxed pt-5 border-t border-white/10">
-              Boosting Service met en relation l'acheteur et le vendeur. Chaque vendeur est indépendant —{" "}
+              Boosting Service met en relation l'acheteur et le vendeur. Chaque
+              vendeur est indépendant —{" "}
               <Link
                 to="/cgu"
                 className="text-slate-400 hover:text-white underline underline-offset-2"

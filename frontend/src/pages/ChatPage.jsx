@@ -16,7 +16,6 @@ import {
 import { db } from "../firebase";
 import { useAuth } from "../AuthContext";
 import {
-  CREATOR_UID,
   CREATOR_DONATION_LINKS,
   commissionRate,
   commissionLabel,
@@ -31,11 +30,16 @@ import {
   ImagePlus,
   X,
   Star,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { fileToCompressedBase64 } from "../components/ImageUpload";
 import RatingModal from "../components/RatingModal";
 import BoostStatusPanel from "../components/BoostStatusPanel";
+
+const MAX_IMAGES_PER_MESSAGE = 10;
+const MAX_FILE_MB = 10;
 
 const ChatPage = () => {
   const { conversationId } = useParams();
@@ -45,12 +49,12 @@ const ChatPage = () => {
   const [text, setText] = useState("");
   const [participants, setParticipants] = useState({});
   const [order, setOrder] = useState(null);
-  const [orderDocId, setOrderDocId] = useState(null);
+  const [, setOrderDocId] = useState(null);
   const [sending, setSending] = useState(false);
-  const [pendingImage, setPendingImage] = useState(""); // base64 staged
+  const [pendingImages, setPendingImages] = useState([]); // base64[] staged
   const [uploading, setUploading] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
-  const [lightboxImg, setLightboxImg] = useState(null);
+  const [lightbox, setLightbox] = useState({ images: [], idx: 0 });
   const endRef = useRef(null);
   const inputRef = useRef(null);
   const fileRef = useRef(null);
@@ -72,7 +76,6 @@ const ChatPage = () => {
     };
   }, [conversationId]);
 
-  // Subscribe to order so we get live boostStatus + rating + status
   useEffect(() => {
     if (!conv) return;
     let unsubOrder = null;
@@ -111,7 +114,6 @@ const ChatPage = () => {
   const isBooster = conv?.boosterUid === user?.uid;
   const readOnly = isCreator && !isClient && !isBooster;
 
-  // Show rating modal once when order completes and client hasn't rated yet
   useEffect(() => {
     if (!order) return;
     if (order.status === "completed" && isClient && !order.rating) {
@@ -167,46 +169,65 @@ const ChatPage = () => {
 
   const handlePickImage = () => fileRef.current?.click();
 
-  const handleFile = async (file) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Format invalide. Utilise une image.");
+  const handleFiles = async (filesList) => {
+    if (!filesList || filesList.length === 0) return;
+    const remaining = MAX_IMAGES_PER_MESSAGE - pendingImages.length;
+    if (remaining <= 0) {
+      toast.error(`Maximum ${MAX_IMAGES_PER_MESSAGE} images par message.`);
       return;
     }
-    if (file.size > 8 * 1024 * 1024) {
-      toast.error("Image trop lourde (max 8 Mo).");
-      return;
-    }
+    const files = Array.from(filesList).slice(0, remaining);
     setUploading(true);
     try {
-      // Larger maxSize for chat (clearer screenshots)
-      const b64 = await fileToCompressedBase64(file, 1200, 0.8);
-      setPendingImage(b64);
+      const next = [...pendingImages];
+      for (const file of files) {
+        if (!file.type.startsWith("image/")) {
+          toast.error("Format invalide ignoré.");
+          continue;
+        }
+        if (file.size > MAX_FILE_MB * 1024 * 1024) {
+          toast.error(`Image > ${MAX_FILE_MB} Mo ignorée.`);
+          continue;
+        }
+        const b64 = await fileToCompressedBase64(file, 1200, 0.78);
+        next.push(b64);
+      }
+      setPendingImages(next.slice(0, MAX_IMAGES_PER_MESSAGE));
     } catch (e) {
-      toast.error("Erreur de lecture de l'image.");
+      toast.error("Erreur de lecture d'une image.");
     } finally {
       setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
     }
   };
+
+  const removePending = (i) =>
+    setPendingImages((arr) => arr.filter((_, k) => k !== i));
 
   const send = async (e) => {
     e?.preventDefault?.();
     const value = text.trim();
-    if ((!value && !pendingImage) || sending) return;
+    if ((!value && pendingImages.length === 0) || sending) return;
     setText("");
-    const img = pendingImage;
-    setPendingImage("");
+    const imgs = pendingImages;
+    setPendingImages([]);
     setSending(true);
     try {
       await addDoc(collection(db, "conversations", conversationId, "messages"), {
         senderUid: user.uid,
         senderName: participants[user.uid]?.displayName || user.email,
         text: value,
-        image: img || null,
+        // Backward-compat: keep first as `image`
+        image: imgs[0] || null,
+        images: imgs,
         createdAt: serverTimestamp(),
       });
       await updateDoc(doc(db, "conversations", conversationId), {
-        lastMessage: img ? (value ? value.slice(0, 80) : "📷 Image") : value.slice(0, 80),
+        lastMessage: imgs.length
+          ? value
+            ? value.slice(0, 80)
+            : `📷 ${imgs.length} image${imgs.length > 1 ? "s" : ""}`
+          : value.slice(0, 80),
         updatedAt: serverTimestamp(),
       });
     } finally {
@@ -316,9 +337,25 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
       .join("");
   };
 
+  const openLightbox = (images, idx) => setLightbox({ images, idx });
+  const closeLightbox = () => setLightbox({ images: [], idx: 0 });
+  const lightboxPrev = (e) => {
+    e?.stopPropagation?.();
+    setLightbox((lb) => ({
+      ...lb,
+      idx: (lb.idx - 1 + lb.images.length) % lb.images.length,
+    }));
+  };
+  const lightboxNext = (e) => {
+    e?.stopPropagation?.();
+    setLightbox((lb) => ({
+      ...lb,
+      idx: (lb.idx + 1) % lb.images.length,
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-ink-950 text-white/90 flex flex-col">
-      {/* Header */}
       <header
         data-testid="chat-header"
         className="sticky top-0 z-10 border-b border-white/10 bg-ink-950/85 backdrop-blur supports-[backdrop-filter]:bg-ink-950/70"
@@ -398,7 +435,6 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
             </div>
           </div>
 
-          {/* Boost status panel (only for boosting orders not completed) */}
           {order && order.type === "boosting" && order.status !== "completed" && (
             <div className="mt-4">
               <BoostStatusPanel
@@ -412,7 +448,6 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
         </div>
       </header>
 
-      {/* Messages */}
       <main data-testid="chat-messages" className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 py-6 space-y-1.5">
           {grouped.length === 0 && (
@@ -462,6 +497,13 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
                 minute: "2-digit",
               }) || "";
 
+            const msgImages =
+              Array.isArray(m.images) && m.images.length > 0
+                ? m.images
+                : m.image
+                ? [m.image]
+                : [];
+
             return (
               <div
                 key={m.id}
@@ -488,19 +530,12 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
                       {m.senderName || "User"}
                     </div>
                   )}
-                  {m.image && (
-                    <button
-                      type="button"
-                      onClick={() => setLightboxImg(m.image)}
-                      data-testid="msg-image"
-                      className="block mb-1.5 rounded-sm overflow-hidden border border-black/10 hover:opacity-90 transition-opacity"
-                    >
-                      <img
-                        src={m.image}
-                        alt="Pièce jointe"
-                        className="max-h-80 max-w-full object-cover"
-                      />
-                    </button>
+                  {msgImages.length > 0 && (
+                    <MessageImages
+                      images={msgImages}
+                      onOpen={(idx) => openLightbox(msgImages, idx)}
+                      mine={mine}
+                    />
                   )}
                   {m.text && <div>{m.text}</div>}
                   {time && (
@@ -520,32 +555,39 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
         </div>
       </main>
 
-      {/* Composer */}
       <footer className="sticky bottom-0 border-t border-white/10 bg-ink-950/85 backdrop-blur supports-[backdrop-filter]:bg-ink-950/70">
         <form
           onSubmit={send}
           data-testid="chat-form"
           className="mx-auto max-w-3xl px-4 sm:px-6 py-3.5"
         >
-          {pendingImage && (
+          {pendingImages.length > 0 && (
             <div
-              data-testid="image-preview"
-              className="relative inline-block mb-2 border border-white/10 rounded-sm overflow-hidden bg-white/[0.02]"
+              data-testid="image-previews"
+              className="flex flex-wrap gap-2 mb-2"
             >
-              <img
-                src={pendingImage}
-                alt="Aperçu"
-                className="max-h-32 object-cover"
-              />
-              <button
-                type="button"
-                onClick={() => setPendingImage("")}
-                data-testid="remove-pending-image"
-                className="absolute top-1.5 right-1.5 bg-ink-950/90 border border-white/20 hover:border-red-500/50 p-1 rounded-sm"
-                aria-label="Retirer l'image"
-              >
-                <X className="h-3 w-3" />
-              </button>
+              {pendingImages.map((src, i) => (
+                <div
+                  key={i}
+                  className="relative border border-white/10 rounded-sm overflow-hidden bg-white/[0.02]"
+                  data-testid={`image-preview-${i}`}
+                >
+                  <img
+                    src={src}
+                    alt={`Aperçu ${i + 1}`}
+                    className="h-20 w-20 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removePending(i)}
+                    data-testid={`remove-pending-image-${i}`}
+                    className="absolute top-1 right-1 bg-ink-950/90 border border-white/20 hover:border-red-500/50 p-0.5 rounded-sm"
+                    aria-label="Retirer"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 
@@ -559,9 +601,13 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
             <button
               type="button"
               onClick={handlePickImage}
-              disabled={readOnly || uploading}
+              disabled={
+                readOnly ||
+                uploading ||
+                pendingImages.length >= MAX_IMAGES_PER_MESSAGE
+              }
               data-testid="chat-attach-btn"
-              aria-label="Joindre une image"
+              aria-label="Joindre des images"
               className="p-2 text-slate-400 hover:text-brand disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               <ImagePlus className="h-4 w-4" />
@@ -570,8 +616,9 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
               ref={fileRef}
               type="file"
               accept="image/*"
+              multiple
               className="hidden"
-              onChange={(e) => handleFile(e.target.files?.[0])}
+              onChange={(e) => handleFiles(e.target.files)}
               data-testid="chat-image-input"
             />
             <input
@@ -581,7 +628,7 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
               data-testid="chat-input"
               placeholder={
                 uploading
-                  ? "Compression de l'image…"
+                  ? "Compression des images…"
                   : readOnly
                   ? "Mode lecture (créateur)"
                   : "Écris ton message…"
@@ -591,7 +638,9 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
             />
             <button
               type="submit"
-              disabled={readOnly || (!text.trim() && !pendingImage) || sending}
+              disabled={
+                readOnly || (!text.trim() && pendingImages.length === 0) || sending
+              }
               data-testid="chat-send-btn"
               aria-label="Envoyer"
               className="inline-flex items-center gap-1.5 bg-brand text-ink-950 hover:bg-brand/90 active:bg-brand/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors px-3 py-2 text-xs font-medium rounded-sm"
@@ -601,27 +650,55 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
             </button>
           </div>
           <p className="mt-2 text-[10px] text-white/35 px-1">
-            Entrée pour envoyer · Images jusqu'à 8 Mo (auto-compressées).
+            Entrée pour envoyer · Jusqu'à {MAX_IMAGES_PER_MESSAGE} images / message
+            · {MAX_FILE_MB} Mo max par image (auto-compressées).
           </p>
         </form>
       </footer>
 
-      {/* Lightbox */}
-      {lightboxImg && (
+      {lightbox.images.length > 0 && (
         <div
           data-testid="image-lightbox"
-          onClick={() => setLightboxImg(null)}
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
+          onClick={closeLightbox}
+          className="fixed inset-0 z-50 bg-black/92 flex items-center justify-center p-4 cursor-zoom-out"
         >
           <img
-            src={lightboxImg}
+            src={lightbox.images[lightbox.idx]}
             alt="Pièce jointe"
             className="max-h-[92vh] max-w-[92vw] object-contain"
           />
+          {lightbox.images.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={lightboxPrev}
+                className="absolute top-1/2 left-4 -translate-y-1/2 p-2 bg-ink-950/80 border border-white/20 rounded-sm text-white"
+                aria-label="Précédente"
+                data-testid="lightbox-prev"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={lightboxNext}
+                className="absolute top-1/2 right-4 -translate-y-1/2 p-2 bg-ink-950/80 border border-white/20 rounded-sm text-white"
+                aria-label="Suivante"
+                data-testid="lightbox-next"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-ink-950/80 border border-white/20 px-3 py-1 text-xs text-white/80 rounded-sm font-mono-label">
+                {lightbox.idx + 1} / {lightbox.images.length}
+              </div>
+            </>
+          )}
           <button
             type="button"
-            onClick={() => setLightboxImg(null)}
-            className="absolute top-4 right-4 p-2 bg-ink-950/80 border border-white/20 rounded-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              closeLightbox();
+            }}
+            className="absolute top-4 right-4 p-2 bg-ink-950/80 border border-white/20 rounded-sm text-white"
             aria-label="Fermer"
           >
             <X className="h-4 w-4" />
@@ -629,7 +706,6 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
         </div>
       )}
 
-      {/* Rating modal */}
       {showRatingModal && order && (
         <RatingModal
           order={order}
@@ -638,6 +714,59 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
           onSubmitted={() => setShowRatingModal(false)}
         />
       )}
+    </div>
+  );
+};
+
+const MessageImages = ({ images, onOpen, mine }) => {
+  if (images.length === 1) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpen(0)}
+        data-testid="msg-image"
+        className="block mb-1.5 rounded-sm overflow-hidden border border-black/10 hover:opacity-90 transition-opacity"
+      >
+        <img
+          src={images[0]}
+          alt="Pièce jointe"
+          className="max-h-80 max-w-full object-cover"
+        />
+      </button>
+    );
+  }
+  // Grid layout for multiple images
+  const cols = images.length === 2 ? "grid-cols-2" : "grid-cols-3";
+  return (
+    <div
+      data-testid="msg-images-grid"
+      className={`grid ${cols} gap-1 mb-1.5 max-w-[320px]`}
+    >
+      {images.slice(0, 9).map((src, i) => {
+        const extra = i === 8 && images.length > 9 ? images.length - 9 : 0;
+        return (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onOpen(i)}
+            data-testid={`msg-image-${i}`}
+            className={`relative aspect-square rounded-sm overflow-hidden border ${
+              mine ? "border-black/10" : "border-white/10"
+            } hover:opacity-90 transition-opacity`}
+          >
+            <img
+              src={src}
+              alt={`Pièce jointe ${i + 1}`}
+              className="w-full h-full object-cover"
+            />
+            {extra > 0 && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-sm font-bold">
+                +{extra}
+              </div>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 };

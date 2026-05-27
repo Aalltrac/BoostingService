@@ -1,15 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
-import { Star, MessageCircle } from "lucide-react";
+import { Star, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
+
+const PAGE_SIZE = 5;
 
 /**
- * Displays average rating + recent reviews for a given booster/seller uid.
- * Reads all completed orders with `rating` for this user and aggregates.
+ * Displays average rating + paginated reviews (5 per page, most recent first).
+ * Falls back to compact mode (same behavior as v1).
  */
-const RatingDisplay = ({ boosterUid, compact = false, max = 5 }) => {
+const RatingDisplay = ({ boosterUid, compact = false }) => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     if (!boosterUid) return;
@@ -31,11 +34,21 @@ const RatingDisplay = ({ boosterUid, compact = false, max = 5 }) => {
     return unsub;
   }, [boosterUid]);
 
+  useEffect(() => {
+    setPage(0);
+  }, [reviews.length]);
+
   const total = reviews.length;
   const avg =
     total > 0
       ? reviews.reduce((s, r) => s + (r.rating.stars || 0), 0) / total
       : 0;
+
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pageItems = useMemo(
+    () => reviews.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE),
+    [reviews, page]
+  );
 
   const Stars = ({ value, size = 14 }) => (
     <div className="inline-flex items-center gap-0.5">
@@ -105,35 +118,78 @@ const RatingDisplay = ({ boosterUid, compact = false, max = 5 }) => {
           Aucun avis pour le moment.
         </div>
       ) : (
-        <ul className="space-y-3 max-h-64 overflow-y-auto pr-1">
-          {reviews.slice(0, max).map((o) => (
-            <li
-              key={o.id}
-              data-testid={`review-${o.id}`}
-              className="border border-white/10 bg-white/[0.02] rounded-sm p-3"
+        <>
+          <ul className="space-y-3" data-testid="reviews-list">
+            {pageItems.map((o) => {
+              const d = o.rating.ratedAt?.toDate?.();
+              return (
+                <li
+                  key={o.id}
+                  data-testid={`review-${o.id}`}
+                  className="border border-white/10 bg-white/[0.02] rounded-sm p-3"
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <Stars value={o.rating.stars} size={12} />
+                    <span className="font-mono-label text-[9px] text-slate-500 truncate">
+                      {o.clientName || "Client"}
+                      {d
+                        ? ` · ${d.toLocaleDateString("fr-FR", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}`
+                        : ""}
+                    </span>
+                  </div>
+                  {o.rating.comment ? (
+                    <p className="text-xs text-slate-300 leading-relaxed flex gap-2">
+                      <MessageCircle
+                        size={11}
+                        className="text-brand mt-0.5 shrink-0"
+                      />
+                      <span className="break-words">{o.rating.comment}</span>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic">
+                      Pas de commentaire.
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
+          {pageCount > 1 && (
+            <div
+              className="flex items-center justify-between pt-2 border-t border-white/10"
+              data-testid="reviews-pagination"
             >
-              <div className="flex items-center justify-between gap-2 mb-1.5">
-                <Stars value={o.rating.stars} size={12} />
-                <span className="font-mono-label text-[9px] text-slate-500 truncate">
-                  {o.clientName || "Client"}
-                </span>
-              </div>
-              {o.rating.comment ? (
-                <p className="text-xs text-slate-300 leading-relaxed flex gap-2">
-                  <MessageCircle
-                    size={11}
-                    className="text-brand mt-0.5 shrink-0"
-                  />
-                  <span className="break-words">{o.rating.comment}</span>
-                </p>
-              ) : (
-                <p className="text-xs text-slate-500 italic">
-                  Pas de commentaire.
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                data-testid="reviews-prev"
+                className="inline-flex items-center gap-1 border border-white/10 hover:border-brand/40 px-2 py-1 text-[11px] rounded-sm disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-slate-300"
+              >
+                <ChevronLeft size={12} />
+                Préc.
+              </button>
+              <span className="font-mono-label text-[10px] text-slate-500">
+                Page {page + 1} / {pageCount}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                disabled={page >= pageCount - 1}
+                data-testid="reviews-next"
+                className="inline-flex items-center gap-1 border border-white/10 hover:border-brand/40 px-2 py-1 text-[11px] rounded-sm disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-slate-300"
+              >
+                Suiv.
+                <ChevronRight size={12} />
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -17,7 +17,7 @@ import {
   MessageSquare,
   ChevronRight,
 } from "lucide-react";
-import RatingDisplay from "../components/RatingDisplay_v2";
+import RatingDisplay from "../components/RatingDisplay";
 import ImageCarousel from "../components/ImageCarousel";
 
 const OrderAccountPage = () => {

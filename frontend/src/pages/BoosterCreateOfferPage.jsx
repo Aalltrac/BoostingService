@@ -27,7 +27,7 @@ import {
   Trophy,
   Save,
 } from "lucide-react";
-import ImageUpload from "../components/ImageUpload";
+import ImageMultiUpload from "../components/ImageMultiUpload";
 
 const BoosterCreateOfferPage = () => {
   const { user, profile, isBooster } = useAuth();
@@ -36,7 +36,7 @@ const BoosterCreateOfferPage = () => {
   const [game, setGame] = useState("rocket-league");
 
   const [title, setTitle] = useState("");
-  const [imageB64, setImageB64] = useState("");
+  const [images, setImages] = useState([]); // array of base64
   const [description, setDescription] = useState("");
   const [type, setType] = useState("free");
   const [donationLinks, setDonationLinks] = useState([{ label: "PayPal", url: "" }]);
@@ -46,7 +46,7 @@ const BoosterCreateOfferPage = () => {
   const [bulkValue, setBulkValue] = useState({});
 
   const [accTitle, setAccTitle] = useState("");
-  const [accImageB64, setAccImageB64] = useState("");
+  const [accImages, setAccImages] = useState([]);
   const [accDesc, setAccDesc] = useState("");
   const [accPrice, setAccPrice] = useState(20);
 
@@ -71,16 +71,25 @@ const BoosterCreateOfferPage = () => {
         const data = d.data();
         setExisting({ id: d.id, ...data });
         setTitle(data.title || "");
-        setImageB64(data.image || "");
+        const arr = Array.isArray(data.images) && data.images.length > 0
+          ? data.images
+          : data.image
+          ? [data.image]
+          : [];
+        setImages(arr);
         setDescription(data.description || "");
         setType(data.type || "free");
-        setDonationLinks(data.donationLinks?.length ? data.donationLinks : [{ label: "PayPal", url: "" }]);
+        setDonationLinks(
+          data.donationLinks?.length
+            ? data.donationLinks
+            : [{ label: "PayPal", url: "" }]
+        );
         setMaxRankPerMode(data.maxRankPerMode || {});
         setPriceTable(data.priceTable || {});
       } else {
         setExisting(null);
         setTitle("");
-        setImageB64("");
+        setImages([]);
         setDescription("");
         setPriceTable({});
         setMaxRankPerMode({});
@@ -94,7 +103,10 @@ const BoosterCreateOfferPage = () => {
   const setPrice = (mode, transitionKey, val) => {
     setPriceTable((prev) => ({
       ...prev,
-      [mode]: { ...(prev[mode] || {}), [transitionKey]: val === "" ? "" : Number(val) },
+      [mode]: {
+        ...(prev[mode] || {}),
+        [transitionKey]: val === "" ? "" : Number(val),
+      },
     }));
   };
 
@@ -104,7 +116,9 @@ const BoosterCreateOfferPage = () => {
     const next = {};
     transitions.forEach((t) => (next[t.key] = v));
     setPriceTable((prev) => ({ ...prev, [mode]: next }));
-    toast.success(`Prix uniforme appliqué (${v}€) sur ${mode === "default" ? "Valorant" : mode}.`);
+    toast.success(
+      `Prix uniforme appliqué (${v}€) sur ${mode === "default" ? "Valorant" : mode}.`
+    );
   };
 
   const saveBoosting = async (e) => {
@@ -113,7 +127,9 @@ const BoosterCreateOfferPage = () => {
     try {
       const cleanLinks = donationLinks.filter((l) => l.url?.trim());
       if (type === "free" && cleanLinks.length === 0) {
-        toast.error("Au moins un lien de donation est requis pour une offre gratuite.");
+        toast.error(
+          "Au moins un lien de donation est requis pour une offre gratuite."
+        );
         setBusy(false);
         return;
       }
@@ -122,7 +138,9 @@ const BoosterCreateOfferPage = () => {
         displayName: profile?.displayName || user.email,
         game,
         title: title.trim(),
-        image: imageB64 || null,
+        // Backward-compatible: keep `image` as first image (used by card previews)
+        image: images[0] || null,
+        images: images,
         description: description.trim(),
         type,
         priceTable: type === "paid" ? priceTable : {},
@@ -133,7 +151,10 @@ const BoosterCreateOfferPage = () => {
       if (existing) {
         await updateDoc(doc(db, "boosterOffers", existing.id), payload);
       } else {
-        await addDoc(collection(db, "boosterOffers"), { ...payload, createdAt: serverTimestamp() });
+        await addDoc(collection(db, "boosterOffers"), {
+          ...payload,
+          createdAt: serverTimestamp(),
+        });
       }
       await updateDoc(doc(db, "users", user.uid), { donationLinks: cleanLinks });
       toast.success("Offre enregistrée !");
@@ -155,7 +176,8 @@ const BoosterCreateOfferPage = () => {
         sellerName: profile?.displayName || user.email,
         game,
         title: accTitle.trim(),
-        image: accImageB64 || null,
+        image: accImages[0] || null,
+        images: accImages,
         description: accDesc.trim(),
         price: Number(accPrice),
         sold: false,
@@ -172,7 +194,6 @@ const BoosterCreateOfferPage = () => {
 
   return (
     <div className="max-w-3xl mx-auto px-4 lg:px-8 py-10">
-      {/* ───────────── HEADER ───────────── */}
       <button
         type="button"
         onClick={() => navigate(-1)}
@@ -182,7 +203,9 @@ const BoosterCreateOfferPage = () => {
         <ArrowLeft size={12} /> Retour
       </button>
 
-      <div className="font-mono-label text-[11px] text-brand mb-2">— Espace boosteur</div>
+      <div className="font-mono-label text-[11px] text-brand mb-2">
+        — Espace boosteur
+      </div>
       <h1 className="font-display font-black text-4xl sm:text-5xl tracking-tighter mb-2">
         Créer une offre
       </h1>
@@ -198,7 +221,6 @@ const BoosterCreateOfferPage = () => {
 
       <div className="h-px bg-white/10 my-8" />
 
-      {/* ───────── SECTION 01 — TYPE D'OFFRE ───────── */}
       <Section
         step="01"
         title="Type d'offre"
@@ -226,7 +248,6 @@ const BoosterCreateOfferPage = () => {
         </div>
       </Section>
 
-      {/* ───────── SECTION 02 — JEU ───────── */}
       <Section
         step="02"
         title="Jeu"
@@ -253,8 +274,11 @@ const BoosterCreateOfferPage = () => {
       </Section>
 
       {kind === "boosting" ? (
-        <form onSubmit={saveBoosting} className="space-y-10" data-testid="boosting-offer-form">
-          {/* ───────── SECTION 03 — DÉTAILS ───────── */}
+        <form
+          onSubmit={saveBoosting}
+          className="space-y-10"
+          data-testid="boosting-offer-form"
+        >
           <Section
             step="03"
             title="Détails de l'offre"
@@ -272,11 +296,13 @@ const BoosterCreateOfferPage = () => {
                   placeholder={`Boost ${GAMES[game].name} pro`}
                 />
               </Field>
-              <ImageUpload
-                label="Image de l'offre"
-                value={imageB64}
-                onChange={setImageB64}
-                testid="offer-image"
+              <ImageMultiUpload
+                label="Images de l'offre (jusqu'à 10)"
+                value={images}
+                onChange={setImages}
+                testid="offer-images"
+                max={10}
+                maxFileSizeMB={10}
               />
               <Field label="Description">
                 <textarea
@@ -291,7 +317,6 @@ const BoosterCreateOfferPage = () => {
             </div>
           </Section>
 
-          {/* ───────── SECTION 04 — TARIFICATION ───────── */}
           <Section
             step="04"
             title="Tarification"
@@ -349,7 +374,9 @@ const BoosterCreateOfferPage = () => {
                       <button
                         type="button"
                         onClick={() =>
-                          setDonationLinks(donationLinks.filter((_, idx) => idx !== i))
+                          setDonationLinks(
+                            donationLinks.filter((_, idx) => idx !== i)
+                          )
                         }
                         data-testid={`donation-remove-${i}`}
                         className="border border-white/10 hover:border-red-500/40 hover:text-red-400 text-slate-400 px-3 rounded-sm transition-colors"
@@ -360,7 +387,9 @@ const BoosterCreateOfferPage = () => {
                   ))}
                   <button
                     type="button"
-                    onClick={() => setDonationLinks([...donationLinks, { label: "", url: "" }])}
+                    onClick={() =>
+                      setDonationLinks([...donationLinks, { label: "", url: "" }])
+                    }
                     data-testid="add-donation-link"
                     className="inline-flex items-center gap-1 text-sm text-brand hover:text-brand-hover transition-colors"
                   >
@@ -373,23 +402,33 @@ const BoosterCreateOfferPage = () => {
             {type === "paid" && (
               <div>
                 <label className="font-mono-label text-[10px] text-slate-400 block mb-3">
-                  Prix par transition de rank {modes.length > 1 ? "(par mode)" : ""}
+                  Prix par transition de rank{" "}
+                  {modes.length > 1 ? "(par mode)" : ""}
                 </label>
                 <div className="border border-white/10 rounded-sm overflow-hidden">
                   {modes.map((m) => {
                     const filled = priceTable[m]
-                      ? Object.values(priceTable[m]).filter((v) => v !== "" && v != null).length
+                      ? Object.values(priceTable[m]).filter(
+                          (v) => v !== "" && v != null
+                        ).length
                       : 0;
                     return (
-                      <div key={m} className="border-b border-white/10 last:border-b-0">
+                      <div
+                        key={m}
+                        className="border-b border-white/10 last:border-b-0"
+                      >
                         <button
                           type="button"
-                          onClick={() => setOpenMode(openMode === m ? null : m)}
+                          onClick={() =>
+                            setOpenMode(openMode === m ? null : m)
+                          }
                           data-testid={`toggle-mode-${m}`}
                           className="w-full p-3 flex items-center justify-between bg-ink-950 hover:bg-ink-800 transition-colors text-sm font-semibold"
                         >
                           <span className="flex items-center gap-3">
-                            <span>{m === "default" ? GAMES[game].name : m}</span>
+                            <span>
+                              {m === "default" ? GAMES[game].name : m}
+                            </span>
                             <span className="font-mono-label text-[10px] text-slate-500">
                               {filled}/{transitions.length} prix
                             </span>
@@ -413,7 +452,10 @@ const BoosterCreateOfferPage = () => {
                                   step={0.5}
                                   value={bulkValue[m] || ""}
                                   onChange={(e) =>
-                                    setBulkValue({ ...bulkValue, [m]: e.target.value })
+                                    setBulkValue({
+                                      ...bulkValue,
+                                      [m]: e.target.value,
+                                    })
                                   }
                                   data-testid={`bulk-input-${m}`}
                                   className="input-base"
@@ -443,12 +485,16 @@ const BoosterCreateOfferPage = () => {
                                     min={0}
                                     step={0.5}
                                     value={priceTable[m]?.[t.key] ?? ""}
-                                    onChange={(e) => setPrice(m, t.key, e.target.value)}
+                                    onChange={(e) =>
+                                      setPrice(m, t.key, e.target.value)
+                                    }
                                     data-testid={`price-${m}-${t.key}`}
                                     className="input-base w-20 text-xs"
                                     placeholder="0"
                                   />
-                                  <span className="text-[10px] text-slate-500">€</span>
+                                  <span className="text-[10px] text-slate-500">
+                                    €
+                                  </span>
                                 </div>
                               ))}
                             </div>
@@ -459,14 +505,13 @@ const BoosterCreateOfferPage = () => {
                   })}
                 </div>
                 <p className="text-[11px] text-slate-500 mt-2">
-                  Astuce : laisse vide les transitions que tu ne veux pas booster (elles seront
-                  indisponibles).
+                  Astuce : laisse vide les transitions que tu ne veux pas
+                  booster (elles seront indisponibles).
                 </p>
               </div>
             )}
           </Section>
 
-          {/* ───────── SECTION 05 — LIMITES ───────── */}
           <Section
             step="05"
             title="Limites"
@@ -479,7 +524,9 @@ const BoosterCreateOfferPage = () => {
             {modes.length === 1 && modes[0] === "default" ? (
               <select
                 value={maxRankPerMode["default"] || ""}
-                onChange={(e) => setMaxRankPerMode({ default: e.target.value })}
+                onChange={(e) =>
+                  setMaxRankPerMode({ default: e.target.value })
+                }
                 data-testid="max-rank-default"
                 className="input-base"
               >
@@ -498,7 +545,10 @@ const BoosterCreateOfferPage = () => {
                     <select
                       value={maxRankPerMode[m] || ""}
                       onChange={(e) =>
-                        setMaxRankPerMode({ ...maxRankPerMode, [m]: e.target.value })
+                        setMaxRankPerMode({
+                          ...maxRankPerMode,
+                          [m]: e.target.value,
+                        })
                       }
                       data-testid={`max-rank-${m}`}
                       className="input-base text-xs"
@@ -514,7 +564,6 @@ const BoosterCreateOfferPage = () => {
             )}
           </Section>
 
-          {/* ───────── SUBMIT ───────── */}
           <div className="pt-2">
             <button
               type="submit"
@@ -523,18 +572,26 @@ const BoosterCreateOfferPage = () => {
               className="w-full inline-flex items-center justify-center gap-2 bg-brand hover:bg-brand-hover py-3.5 font-bold rounded-sm purple-glow disabled:opacity-50 transition-colors"
             >
               <Save size={16} />
-              {busy ? "Enregistrement…" : existing ? "Mettre à jour l'offre" : "Créer l'offre"}
+              {busy
+                ? "Enregistrement…"
+                : existing
+                ? "Mettre à jour l'offre"
+                : "Créer l'offre"}
             </button>
             <p className="text-[11px] text-slate-500 text-center mt-3">
-              Tu pourras modifier ton offre à tout moment depuis ton espace boosteur.
+              Tu pourras modifier ton offre à tout moment depuis ton espace
+              boosteur.
             </p>
           </div>
 
           <style>{`.input-base{width:100%;background:#050507;border:1px solid rgba(255,255,255,0.1);padding:.6rem .85rem;font-size:.85rem;border-radius:2px;outline:none;color:#fff;transition:border-color .15s ease}.input-base:hover{border-color:rgba(255,255,255,0.18)}.input-base:focus{border-color:#9D4CDD}`}</style>
         </form>
       ) : (
-        <form onSubmit={saveAccount} className="space-y-10" data-testid="account-offer-form">
-          {/* ───────── SECTION 03 — DÉTAILS ───────── */}
+        <form
+          onSubmit={saveAccount}
+          className="space-y-10"
+          data-testid="account-offer-form"
+        >
           <Section
             step="03"
             title="Détails du compte"
@@ -551,11 +608,13 @@ const BoosterCreateOfferPage = () => {
                   data-testid="acc-title"
                 />
               </Field>
-              <ImageUpload
-                label="Image du compte"
-                value={accImageB64}
-                onChange={setAccImageB64}
-                testid="acc-image"
+              <ImageMultiUpload
+                label="Images du compte (jusqu'à 10)"
+                value={accImages}
+                onChange={setAccImages}
+                testid="acc-images"
+                max={10}
+                maxFileSizeMB={10}
               />
               <Field label="Description">
                 <textarea
@@ -570,7 +629,6 @@ const BoosterCreateOfferPage = () => {
             </div>
           </Section>
 
-          {/* ───────── SECTION 04 — PRIX ───────── */}
           <Section
             step="04"
             title="Prix de vente"
@@ -601,7 +659,8 @@ const BoosterCreateOfferPage = () => {
               {busy ? "Enregistrement…" : "Mettre en vente"}
             </button>
             <p className="text-[11px] text-slate-500 text-center mt-3">
-              Une fois vendu, le compte sera marqué comme indisponible automatiquement.
+              Une fois vendu, le compte sera marqué comme indisponible
+              automatiquement.
             </p>
           </div>
 
@@ -612,13 +671,12 @@ const BoosterCreateOfferPage = () => {
   );
 };
 
-/* ─────────────────────────────────────────────────────────────
-   Sous-composants : Section (en-tête numéroté + carte)
-   ───────────────────────────────────────────────────────────── */
 const Section = ({ step, title, hint, icon, children }) => (
   <section className="mb-8 last:mb-0">
     <div className="flex items-baseline gap-3 mb-4">
-      <span className="font-mono-label text-[11px] text-brand tracking-wider">{step}</span>
+      <span className="font-mono-label text-[11px] text-brand tracking-wider">
+        {step}
+      </span>
       <div className="h-px flex-1 bg-white/10" />
     </div>
     <div className="mb-4">
@@ -628,7 +686,9 @@ const Section = ({ step, title, hint, icon, children }) => (
       </h2>
       {hint && <p className="text-[12px] text-slate-500 mt-1">{hint}</p>}
     </div>
-    <div className="border border-white/10 bg-ink-900 p-5 sm:p-6 rounded-sm">{children}</div>
+    <div className="border border-white/10 bg-ink-900 p-5 sm:p-6 rounded-sm">
+      {children}
+    </div>
   </section>
 );
 

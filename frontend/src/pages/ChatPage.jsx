@@ -29,13 +29,14 @@ import {
   Eye,
   ImagePlus,
   X,
+  Star,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { fileToCompressedBase64 } from "../components/ImageUpload";
+import RatingModal from "../components/RatingModal";
 import BoostStatusPanel from "../components/BoostStatusPanel";
-import InlineRatingBlock from "../components/InlineRatingBlock";
 
 const MAX_IMAGES_PER_MESSAGE = 10;
 const MAX_FILE_MB = 10;
@@ -50,10 +51,9 @@ const ChatPage = () => {
   const [order, setOrder] = useState(null);
   const [, setOrderDocId] = useState(null);
   const [sending, setSending] = useState(false);
-  const [pendingImages, setPendingImages] = useState([]);
+  const [pendingImages, setPendingImages] = useState([]); // base64[] staged
   const [uploading, setUploading] = useState(false);
-  const [ratingSubmitted, setRatingSubmitted] = useState(false);
-  const [completing, setCompleting] = useState(false);
+  const [showRatingModal, setShowRatingModal] = useState(false);
   const [lightbox, setLightbox] = useState({ images: [], idx: 0 });
   const endRef = useRef(null);
   const inputRef = useRef(null);
@@ -87,49 +87,15 @@ const ChatPage = () => {
       }
       setParticipants(map);
 
-      let orderId = null;
-
-      // Strategy 1: by conversationId field on order (needs only 1 index)
-      const oq1 = query(collection(db, "orders"), where("conversationId", "==", conversationId));
-      const os1 = await getDocs(oq1);
-      if (!os1.empty) {
-        orderId = os1.docs[0].id;
-      }
-
-      // Strategy 2: fetch ALL orders where user is client, filter in JS
-      if (!orderId && user?.uid) {
-        const oq2 = query(collection(db, "orders"), where("clientUid", "==", user.uid));
-        const os2 = await getDocs(oq2);
-        // Find the one whose conversationId matches, or whose participants overlap this conv
-        const convParticipants = new Set(conv.participants || []);
-        const match = os2.docs.find(d => {
-          const data = d.data();
-          return (
-            data.conversationId === conversationId ||
-            (convParticipants.has(data.boosterUid) && convParticipants.has(data.clientUid))
-          );
-        });
-        if (match) orderId = match.id;
-      }
-
-      // Strategy 3: fetch ALL orders where user is booster, filter in JS
-      if (!orderId && user?.uid) {
-        const oq3 = query(collection(db, "orders"), where("boosterUid", "==", user.uid));
-        const os3 = await getDocs(oq3);
-        const convParticipants = new Set(conv.participants || []);
-        const match = os3.docs.find(d => {
-          const data = d.data();
-          return (
-            data.conversationId === conversationId ||
-            (convParticipants.has(data.boosterUid) && convParticipants.has(data.clientUid))
-          );
-        });
-        if (match) orderId = match.id;
-      }
-
-      if (orderId) {
-        setOrderDocId(orderId);
-        unsubOrder = onSnapshot(doc(db, "orders", orderId), (s) => {
+      const oq = query(
+        collection(db, "orders"),
+        where("conversationId", "==", conversationId)
+      );
+      const os = await getDocs(oq);
+      if (!os.empty) {
+        const id = os.docs[0].id;
+        setOrderDocId(id);
+        unsubOrder = onSnapshot(doc(db, "orders", id), (s) => {
           if (s.exists()) setOrder({ id: s.id, ...s.data() });
         });
       }
@@ -144,19 +110,16 @@ const ChatPage = () => {
   }, [messages]);
 
   const allowed = conv && (conv.participants?.includes(user.uid) || isCreator);
-  const isClient = conv?.clientUid === user?.uid || order?.clientUid === user?.uid;
+  const isClient = conv?.clientUid === user?.uid;
   const isBooster = conv?.boosterUid === user?.uid;
   const readOnly = isCreator && !isClient && !isBooster;
 
-
-  // Whether to show inline rating block at the bottom of messages
-  // rating is absent if: undefined, null, or missing stars field
-  const hasRating = order?.rating && typeof order.rating.stars === "number";
-  const showInlineRating =
-    order?.status === "completed" &&
-    isClient &&
-    !hasRating &&
-    !ratingSubmitted;
+  useEffect(() => {
+    if (!order) return;
+    if (order.status === "completed" && isClient && !order.rating) {
+      setShowRatingModal(true);
+    }
+  }, [order?.status, order?.rating, isClient]); // eslint-disable-line
 
   const grouped = useMemo(() => {
     const groups = [];
@@ -254,6 +217,7 @@ const ChatPage = () => {
         senderUid: user.uid,
         senderName: participants[user.uid]?.displayName || user.email,
         text: value,
+        // Backward-compat: keep first as `image`
         image: imgs[0] || null,
         images: imgs,
         createdAt: serverTimestamp(),
@@ -273,8 +237,7 @@ const ChatPage = () => {
   };
 
   const markCompleted = async () => {
-    if (!order || order.status === "completed" || completing) return;
-    setCompleting(true);
+    if (!order) return;
     try {
       await updateDoc(doc(db, "orders", order.id), {
         status: "completed",
@@ -287,14 +250,18 @@ const ChatPage = () => {
           const bData = bSnap.data() || {};
           const links = bData.donationLinks || [];
           const linksTxt = links.length
-            ? links.map((l) => `${l.label || "Lien"} : ${l.url}`).join("\n")
+            ? links.map((l) => `${l.label || "Lien"} : ${l.url}`).join("")
             : "Aucun lien de donation renseigné.";
           await addDoc(
             collection(db, "conversations", conversationId, "messages"),
             {
               senderUid: "system",
               system: true,
-              text: `Boost terminé !\nSi tu veux soutenir ton boosteur, voici ses liens de donation :\n${linksTxt}\n\nN'oublie pas de laisser un avis pour ton boosteur ⭐`,
+              text: `Boost terminé !
+Si tu veux soutenir ton boosteur, voici ses liens de donation :
+${linksTxt}
+
+N'oublie pas de laisser un avis pour ton boosteur ⭐`,
               createdAt: serverTimestamp(),
             }
           );
@@ -304,13 +271,18 @@ const ChatPage = () => {
           const com = (price * rate).toFixed(2);
           const linksTxt = CREATOR_DONATION_LINKS.map(
             (l) => `${l.label} : ${l.url}`
-          ).join("\n");
+          ).join("");
           await addDoc(
             collection(db, "conversations", conversationId, "messages"),
             {
               senderUid: "system",
               system: true,
-              text: `Commande ${order.id} terminée.\nMontant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€\nMerci de verser la commission via :\n${linksTxt}\n\nN'oublie pas de laisser un avis pour ton boosteur ⭐`,
+              text: `Commande ${order.id} terminée.
+Montant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€
+Merci de verser la commission via :
+${linksTxt}
+
+N'oublie pas de laisser un avis pour ton boosteur ⭐`,
               createdAt: serverTimestamp(),
             }
           );
@@ -321,13 +293,18 @@ const ChatPage = () => {
         const com = (price * rate).toFixed(2);
         const linksTxt = CREATOR_DONATION_LINKS.map(
           (l) => `${l.label} : ${l.url}`
-        ).join("\n");
+        ).join("");
         await addDoc(
           collection(db, "conversations", conversationId, "messages"),
           {
             senderUid: "system",
             system: true,
-            text: `Vente terminée.\nMontant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€\nMerci de verser la commission via :\n${linksTxt}\n\nN'oublie pas de laisser un avis pour ton vendeur ⭐`,
+            text: `Vente terminée.
+Montant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€
+Merci de verser la commission via :
+${linksTxt}
+
+N'oublie pas de laisser un avis pour ton vendeur ⭐`,
             createdAt: serverTimestamp(),
           }
         );
@@ -341,8 +318,6 @@ const ChatPage = () => {
       toast.success("Marqué comme terminé !");
     } catch (e) {
       toast.error(e.message);
-    } finally {
-      setCompleting(false);
     }
   };
 
@@ -430,9 +405,8 @@ const ChatPage = () => {
                 <button
                   type="button"
                   onClick={markCompleted}
-                  disabled={completing}
                   data-testid="mark-completed-btn"
-                  className="inline-flex items-center gap-1.5 bg-brand text-ink-950 hover:bg-brand/90 active:bg-brand/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors px-3 py-1.5 text-xs font-medium rounded-sm"
+                  className="inline-flex items-center gap-1.5 bg-brand text-ink-950 hover:bg-brand/90 active:bg-brand/80 transition-colors px-3 py-1.5 text-xs font-medium rounded-sm"
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Marquer terminé
@@ -446,6 +420,17 @@ const ChatPage = () => {
                   <CheckCircle2 className="h-3 w-3" />
                   Terminé
                 </span>
+              )}
+              {order?.status === "completed" && isClient && !order.rating && (
+                <button
+                  type="button"
+                  onClick={() => setShowRatingModal(true)}
+                  data-testid="open-rating-btn"
+                  className="inline-flex items-center gap-1.5 border border-amber-400/40 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20 transition-colors px-3 py-1.5 text-xs font-medium rounded-sm"
+                >
+                  <Star className="h-3.5 w-3.5" />
+                  Laisser un avis
+                </button>
               )}
             </div>
           </div>
@@ -566,18 +551,6 @@ const ChatPage = () => {
               </div>
             );
           })}
-
-          {/* ── Inline Rating Block — appears right after messages when boost is done ── */}
-          {showInlineRating && order && (
-            <InlineRatingBlock
-              order={order}
-              conversationId={conversationId}
-              onSubmitted={() => {
-                setRatingSubmitted(true);
-              }}
-            />
-          )}
-
           <div ref={endRef} />
         </div>
       </main>
@@ -733,6 +706,14 @@ const ChatPage = () => {
         </div>
       )}
 
+      {showRatingModal && order && (
+        <RatingModal
+          order={order}
+          conversationId={conversationId}
+          onClose={() => setShowRatingModal(false)}
+          onSubmitted={() => setShowRatingModal(false)}
+        />
+      )}
     </div>
   );
 };
@@ -754,6 +735,7 @@ const MessageImages = ({ images, onOpen, mine }) => {
       </button>
     );
   }
+  // Grid layout for multiple images
   const cols = images.length === 2 ? "grid-cols-2" : "grid-cols-3";
   return (
     <div

@@ -53,6 +53,7 @@ const ChatPage = () => {
   const [pendingImages, setPendingImages] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const [completing, setCompleting] = useState(false);
   const [lightbox, setLightbox] = useState({ images: [], idx: 0 });
   const endRef = useRef(null);
   const inputRef = useRef(null);
@@ -86,18 +87,17 @@ const ChatPage = () => {
       }
       setParticipants(map);
 
-      // Primary: find order by conversationId
-      const oq = query(
-        collection(db, "orders"),
-        where("conversationId", "==", conversationId)
-      );
-      const os = await getDocs(oq);
-
       let orderId = null;
-      if (!os.empty) {
-        orderId = os.docs[0].id;
-      } else if (conv.clientUid && conv.boosterUid) {
-        // Fallback: find order by participants in case conversationId field is missing
+
+      // Strategy 1: by conversationId field on order
+      const oq1 = query(collection(db, "orders"), where("conversationId", "==", conversationId));
+      const os1 = await getDocs(oq1);
+      if (!os1.empty) {
+        orderId = os1.docs[0].id;
+      }
+
+      // Strategy 2: conv has clientUid/boosterUid fields
+      if (!orderId && conv.clientUid && conv.boosterUid) {
         const oq2 = query(
           collection(db, "orders"),
           where("clientUid", "==", conv.clientUid),
@@ -105,6 +105,30 @@ const ChatPage = () => {
         );
         const os2 = await getDocs(oq2);
         if (!os2.empty) orderId = os2.docs[0].id;
+      }
+
+      // Strategy 3: try each participant as clientUid against the other as boosterUid
+      if (!orderId && conv.participants?.length >= 2) {
+        const [p1, p2] = conv.participants;
+        // Try p1=client, p2=booster
+        const oq3a = query(
+          collection(db, "orders"),
+          where("clientUid", "==", p1),
+          where("boosterUid", "==", p2)
+        );
+        const os3a = await getDocs(oq3a);
+        if (!os3a.empty) {
+          orderId = os3a.docs[0].id;
+        } else {
+          // Try p2=client, p1=booster
+          const oq3b = query(
+            collection(db, "orders"),
+            where("clientUid", "==", p2),
+            where("boosterUid", "==", p1)
+          );
+          const os3b = await getDocs(oq3b);
+          if (!os3b.empty) orderId = os3b.docs[0].id;
+        }
       }
 
       if (orderId) {
@@ -253,7 +277,8 @@ const ChatPage = () => {
   };
 
   const markCompleted = async () => {
-    if (!order) return;
+    if (!order || order.status === "completed" || completing) return;
+    setCompleting(true);
     try {
       await updateDoc(doc(db, "orders", order.id), {
         status: "completed",
@@ -320,6 +345,8 @@ const ChatPage = () => {
       toast.success("Marqué comme terminé !");
     } catch (e) {
       toast.error(e.message);
+    } finally {
+      setCompleting(false);
     }
   };
 
@@ -407,8 +434,9 @@ const ChatPage = () => {
                 <button
                   type="button"
                   onClick={markCompleted}
+                  disabled={completing}
                   data-testid="mark-completed-btn"
-                  className="inline-flex items-center gap-1.5 bg-brand text-ink-950 hover:bg-brand/90 active:bg-brand/80 transition-colors px-3 py-1.5 text-xs font-medium rounded-sm"
+                  className="inline-flex items-center gap-1.5 bg-brand text-ink-950 hover:bg-brand/90 active:bg-brand/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors px-3 py-1.5 text-xs font-medium rounded-sm"
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Marquer terminé

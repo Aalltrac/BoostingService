@@ -89,46 +89,42 @@ const ChatPage = () => {
 
       let orderId = null;
 
-      // Strategy 1: by conversationId field on order
+      // Strategy 1: by conversationId field on order (needs only 1 index)
       const oq1 = query(collection(db, "orders"), where("conversationId", "==", conversationId));
       const os1 = await getDocs(oq1);
       if (!os1.empty) {
         orderId = os1.docs[0].id;
       }
 
-      // Strategy 2: conv has clientUid/boosterUid fields
-      if (!orderId && conv.clientUid && conv.boosterUid) {
-        const oq2 = query(
-          collection(db, "orders"),
-          where("clientUid", "==", conv.clientUid),
-          where("boosterUid", "==", conv.boosterUid)
-        );
+      // Strategy 2: fetch ALL orders where user is client, filter in JS
+      if (!orderId && user?.uid) {
+        const oq2 = query(collection(db, "orders"), where("clientUid", "==", user.uid));
         const os2 = await getDocs(oq2);
-        if (!os2.empty) orderId = os2.docs[0].id;
+        // Find the one whose conversationId matches, or whose participants overlap this conv
+        const convParticipants = new Set(conv.participants || []);
+        const match = os2.docs.find(d => {
+          const data = d.data();
+          return (
+            data.conversationId === conversationId ||
+            (convParticipants.has(data.boosterUid) && convParticipants.has(data.clientUid))
+          );
+        });
+        if (match) orderId = match.id;
       }
 
-      // Strategy 3: try each participant as clientUid against the other as boosterUid
-      if (!orderId && conv.participants?.length >= 2) {
-        const [p1, p2] = conv.participants;
-        // Try p1=client, p2=booster
-        const oq3a = query(
-          collection(db, "orders"),
-          where("clientUid", "==", p1),
-          where("boosterUid", "==", p2)
-        );
-        const os3a = await getDocs(oq3a);
-        if (!os3a.empty) {
-          orderId = os3a.docs[0].id;
-        } else {
-          // Try p2=client, p1=booster
-          const oq3b = query(
-            collection(db, "orders"),
-            where("clientUid", "==", p2),
-            where("boosterUid", "==", p1)
+      // Strategy 3: fetch ALL orders where user is booster, filter in JS
+      if (!orderId && user?.uid) {
+        const oq3 = query(collection(db, "orders"), where("boosterUid", "==", user.uid));
+        const os3 = await getDocs(oq3);
+        const convParticipants = new Set(conv.participants || []);
+        const match = os3.docs.find(d => {
+          const data = d.data();
+          return (
+            data.conversationId === conversationId ||
+            (convParticipants.has(data.boosterUid) && convParticipants.has(data.clientUid))
           );
-          const os3b = await getDocs(oq3b);
-          if (!os3b.empty) orderId = os3b.docs[0].id;
-        }
+        });
+        if (match) orderId = match.id;
       }
 
       if (orderId) {

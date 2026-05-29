@@ -34,7 +34,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { fileToCompressedBase64 } from "../components/ImageUpload";
-import RatingModal from "../components/RatingModal";
 import BoostStatusPanel from "../components/BoostStatusPanel";
 import InlineRatingBlock from "../components/InlineRatingBlock";
 
@@ -53,7 +52,6 @@ const ChatPage = () => {
   const [sending, setSending] = useState(false);
   const [pendingImages, setPendingImages] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const [showRatingModal, setShowRatingModal] = useState(false);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [lightbox, setLightbox] = useState({ images: [], idx: 0 });
   const endRef = useRef(null);
@@ -88,15 +86,30 @@ const ChatPage = () => {
       }
       setParticipants(map);
 
+      // Primary: find order by conversationId
       const oq = query(
         collection(db, "orders"),
         where("conversationId", "==", conversationId)
       );
       const os = await getDocs(oq);
+
+      let orderId = null;
       if (!os.empty) {
-        const id = os.docs[0].id;
-        setOrderDocId(id);
-        unsubOrder = onSnapshot(doc(db, "orders", id), (s) => {
+        orderId = os.docs[0].id;
+      } else if (conv.clientUid && conv.boosterUid) {
+        // Fallback: find order by participants in case conversationId field is missing
+        const oq2 = query(
+          collection(db, "orders"),
+          where("clientUid", "==", conv.clientUid),
+          where("boosterUid", "==", conv.boosterUid)
+        );
+        const os2 = await getDocs(oq2);
+        if (!os2.empty) orderId = os2.docs[0].id;
+      }
+
+      if (orderId) {
+        setOrderDocId(orderId);
+        unsubOrder = onSnapshot(doc(db, "orders", orderId), (s) => {
           if (s.exists()) setOrder({ id: s.id, ...s.data() });
         });
       }
@@ -111,23 +124,18 @@ const ChatPage = () => {
   }, [messages]);
 
   const allowed = conv && (conv.participants?.includes(user.uid) || isCreator);
-  const isClient = conv?.clientUid === user?.uid;
+  const isClient = conv?.clientUid === user?.uid || order?.clientUid === user?.uid;
   const isBooster = conv?.boosterUid === user?.uid;
   const readOnly = isCreator && !isClient && !isBooster;
 
-  // Show rating modal only if rating not already submitted in this session
-  useEffect(() => {
-    if (!order) return;
-    if (order.status === "completed" && isClient && !order.rating && !ratingSubmitted) {
-      setShowRatingModal(true);
-    }
-  }, [order?.status, order?.rating, isClient]); // eslint-disable-line
 
   // Whether to show inline rating block at the bottom of messages
+  // rating is absent if: undefined, null, or missing stars field
+  const hasRating = order?.rating && typeof order.rating.stars === "number";
   const showInlineRating =
     order?.status === "completed" &&
     isClient &&
-    !order?.rating &&
+    !hasRating &&
     !ratingSubmitted;
 
   const grouped = useMemo(() => {
@@ -542,7 +550,6 @@ const ChatPage = () => {
               conversationId={conversationId}
               onSubmitted={() => {
                 setRatingSubmitted(true);
-                setShowRatingModal(false);
               }}
             />
           )}
@@ -702,18 +709,6 @@ const ChatPage = () => {
         </div>
       )}
 
-      {/* Keep the modal as a fallback for direct access via URL refresh */}
-      {showRatingModal && order && !ratingSubmitted && (
-        <RatingModal
-          order={order}
-          conversationId={conversationId}
-          onClose={() => setShowRatingModal(false)}
-          onSubmitted={() => {
-            setRatingSubmitted(true);
-            setShowRatingModal(false);
-          }}
-        />
-      )}
     </div>
   );
 };

@@ -29,7 +29,6 @@ import {
   Eye,
   ImagePlus,
   X,
-  Star,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -37,6 +36,7 @@ import { toast } from "sonner";
 import { fileToCompressedBase64 } from "../components/ImageUpload";
 import RatingModal from "../components/RatingModal";
 import BoostStatusPanel from "../components/BoostStatusPanel";
+import InlineRatingBlock from "../components/InlineRatingBlock";
 
 const MAX_IMAGES_PER_MESSAGE = 10;
 const MAX_FILE_MB = 10;
@@ -51,9 +51,10 @@ const ChatPage = () => {
   const [order, setOrder] = useState(null);
   const [, setOrderDocId] = useState(null);
   const [sending, setSending] = useState(false);
-  const [pendingImages, setPendingImages] = useState([]); // base64[] staged
+  const [pendingImages, setPendingImages] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [lightbox, setLightbox] = useState({ images: [], idx: 0 });
   const endRef = useRef(null);
   const inputRef = useRef(null);
@@ -114,12 +115,20 @@ const ChatPage = () => {
   const isBooster = conv?.boosterUid === user?.uid;
   const readOnly = isCreator && !isClient && !isBooster;
 
+  // Show rating modal only if rating not already submitted in this session
   useEffect(() => {
     if (!order) return;
-    if (order.status === "completed" && isClient && !order.rating) {
+    if (order.status === "completed" && isClient && !order.rating && !ratingSubmitted) {
       setShowRatingModal(true);
     }
   }, [order?.status, order?.rating, isClient]); // eslint-disable-line
+
+  // Whether to show inline rating block at the bottom of messages
+  const showInlineRating =
+    order?.status === "completed" &&
+    isClient &&
+    !order?.rating &&
+    !ratingSubmitted;
 
   const grouped = useMemo(() => {
     const groups = [];
@@ -217,7 +226,6 @@ const ChatPage = () => {
         senderUid: user.uid,
         senderName: participants[user.uid]?.displayName || user.email,
         text: value,
-        // Backward-compat: keep first as `image`
         image: imgs[0] || null,
         images: imgs,
         createdAt: serverTimestamp(),
@@ -250,18 +258,14 @@ const ChatPage = () => {
           const bData = bSnap.data() || {};
           const links = bData.donationLinks || [];
           const linksTxt = links.length
-            ? links.map((l) => `${l.label || "Lien"} : ${l.url}`).join("")
+            ? links.map((l) => `${l.label || "Lien"} : ${l.url}`).join("\n")
             : "Aucun lien de donation renseigné.";
           await addDoc(
             collection(db, "conversations", conversationId, "messages"),
             {
               senderUid: "system",
               system: true,
-              text: `Boost terminé !
-Si tu veux soutenir ton boosteur, voici ses liens de donation :
-${linksTxt}
-
-N'oublie pas de laisser un avis pour ton boosteur ⭐`,
+              text: `Boost terminé !\nSi tu veux soutenir ton boosteur, voici ses liens de donation :\n${linksTxt}\n\nN'oublie pas de laisser un avis pour ton boosteur ⭐`,
               createdAt: serverTimestamp(),
             }
           );
@@ -271,18 +275,13 @@ N'oublie pas de laisser un avis pour ton boosteur ⭐`,
           const com = (price * rate).toFixed(2);
           const linksTxt = CREATOR_DONATION_LINKS.map(
             (l) => `${l.label} : ${l.url}`
-          ).join("");
+          ).join("\n");
           await addDoc(
             collection(db, "conversations", conversationId, "messages"),
             {
               senderUid: "system",
               system: true,
-              text: `Commande ${order.id} terminée.
-Montant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€
-Merci de verser la commission via :
-${linksTxt}
-
-N'oublie pas de laisser un avis pour ton boosteur ⭐`,
+              text: `Commande ${order.id} terminée.\nMontant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€\nMerci de verser la commission via :\n${linksTxt}\n\nN'oublie pas de laisser un avis pour ton boosteur ⭐`,
               createdAt: serverTimestamp(),
             }
           );
@@ -293,18 +292,13 @@ N'oublie pas de laisser un avis pour ton boosteur ⭐`,
         const com = (price * rate).toFixed(2);
         const linksTxt = CREATOR_DONATION_LINKS.map(
           (l) => `${l.label} : ${l.url}`
-        ).join("");
+        ).join("\n");
         await addDoc(
           collection(db, "conversations", conversationId, "messages"),
           {
             senderUid: "system",
             system: true,
-            text: `Vente terminée.
-Montant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€
-Merci de verser la commission via :
-${linksTxt}
-
-N'oublie pas de laisser un avis pour ton vendeur ⭐`,
+            text: `Vente terminée.\nMontant : ${price}€ — Commission ${commissionLabel(price)} = ${com}€\nMerci de verser la commission via :\n${linksTxt}\n\nN'oublie pas de laisser un avis pour ton vendeur ⭐`,
             createdAt: serverTimestamp(),
           }
         );
@@ -420,17 +414,6 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
                   <CheckCircle2 className="h-3 w-3" />
                   Terminé
                 </span>
-              )}
-              {order?.status === "completed" && isClient && !order.rating && (
-                <button
-                  type="button"
-                  onClick={() => setShowRatingModal(true)}
-                  data-testid="open-rating-btn"
-                  className="inline-flex items-center gap-1.5 border border-amber-400/40 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20 transition-colors px-3 py-1.5 text-xs font-medium rounded-sm"
-                >
-                  <Star className="h-3.5 w-3.5" />
-                  Laisser un avis
-                </button>
               )}
             </div>
           </div>
@@ -551,6 +534,19 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
               </div>
             );
           })}
+
+          {/* ── Inline Rating Block — appears right after messages when boost is done ── */}
+          {showInlineRating && order && (
+            <InlineRatingBlock
+              order={order}
+              conversationId={conversationId}
+              onSubmitted={() => {
+                setRatingSubmitted(true);
+                setShowRatingModal(false);
+              }}
+            />
+          )}
+
           <div ref={endRef} />
         </div>
       </main>
@@ -706,12 +702,16 @@ N'oublie pas de laisser un avis pour ton vendeur ⭐`,
         </div>
       )}
 
-      {showRatingModal && order && (
+      {/* Keep the modal as a fallback for direct access via URL refresh */}
+      {showRatingModal && order && !ratingSubmitted && (
         <RatingModal
           order={order}
           conversationId={conversationId}
           onClose={() => setShowRatingModal(false)}
-          onSubmitted={() => setShowRatingModal(false)}
+          onSubmitted={() => {
+            setRatingSubmitted(true);
+            setShowRatingModal(false);
+          }}
         />
       )}
     </div>
@@ -735,7 +735,6 @@ const MessageImages = ({ images, onOpen, mine }) => {
       </button>
     );
   }
-  // Grid layout for multiple images
   const cols = images.length === 2 ? "grid-cols-2" : "grid-cols-3";
   return (
     <div

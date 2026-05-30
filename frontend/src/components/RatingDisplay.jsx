@@ -23,11 +23,8 @@ const RatingDisplay = ({ boosterUid, compact = false }) => {
     const unsub = onSnapshot(q, (snap) => {
       const list = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((o) => o.rating && typeof o.rating.stars === "number")
-        .sort(
-          (a, b) =>
-            (b.rating.ratedAt?.seconds || 0) - (a.rating.ratedAt?.seconds || 0)
-        );
+        .filter((o) => typeof o.stars === "number")
+        .sort((a, b) => (b.ratedAt?.seconds || 0) - (a.ratedAt?.seconds || 0));
       setReviews(list);
       setLoading(false);
     });

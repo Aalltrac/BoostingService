@@ -26,6 +26,16 @@ const RatingModal = ({ order, conversationId, onClose, onSubmitted }) => {
       };
       await updateDoc(doc(db, "orders", order.id), { rating: payload });
 
+      await addDoc(collection(db, "reviews"), {
+          boosterUid: order.boosterUid,
+          clientUid: order.clientUid,
+          clientName: order.clientName || "Client",
+          orderId: order.id,
+          stars: Number(stars),
+          comment: comment.trim(),
+          ratedAt: serverTimestamp(),
+      });
+
       if (conversationId) {
         await addDoc(
           collection(db, "conversations", conversationId, "messages"),

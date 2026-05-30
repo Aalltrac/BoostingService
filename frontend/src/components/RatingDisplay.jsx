@@ -17,7 +17,7 @@ const RatingDisplay = ({ boosterUid, compact = false }) => {
   useEffect(() => {
     if (!boosterUid) return;
     const q = query(
-      collection(db, "orders"),
+      collection(db, "reviews"),
       where("boosterUid", "==", boosterUid)
     );
     const unsub = onSnapshot(q, (snap) => {

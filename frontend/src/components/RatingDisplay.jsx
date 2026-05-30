@@ -5,10 +5,6 @@ import { Star, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 
 const PAGE_SIZE = 5;
 
-/**
- * Displays average rating + paginated reviews (5 per page, most recent first).
- * Falls back to compact mode (same behavior as v1).
- */
 const RatingDisplay = ({ boosterUid, compact = false }) => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +34,7 @@ const RatingDisplay = ({ boosterUid, compact = false }) => {
   const total = reviews.length;
   const avg =
     total > 0
-      ? reviews.reduce((s, r) => s + (r.rating.stars || 0), 0) / total
+      ? reviews.reduce((s, r) => s + (r.stars || 0), 0) / total
       : 0;
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -118,7 +114,7 @@ const RatingDisplay = ({ boosterUid, compact = false }) => {
         <>
           <ul className="space-y-3" data-testid="reviews-list">
             {pageItems.map((o) => {
-              const d = o.rating.ratedAt?.toDate?.();
+              const d = o.ratedAt?.toDate?.();
               return (
                 <li
                   key={o.id}
@@ -126,7 +122,7 @@ const RatingDisplay = ({ boosterUid, compact = false }) => {
                   className="border border-white/10 bg-white/[0.02] rounded-sm p-3"
                 >
                   <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <Stars value={o.rating.stars} size={12} />
+                    <Stars value={o.stars} size={12} />
                     <span className="font-mono-label text-[9px] text-slate-500 truncate">
                       {o.clientName || "Client"}
                       {d
@@ -138,13 +134,13 @@ const RatingDisplay = ({ boosterUid, compact = false }) => {
                         : ""}
                     </span>
                   </div>
-                  {o.rating.comment ? (
+                  {o.comment ? (
                     <p className="text-xs text-slate-300 leading-relaxed flex gap-2">
                       <MessageCircle
                         size={11}
                         className="text-brand mt-0.5 shrink-0"
                       />
-                      <span className="break-words">{o.rating.comment}</span>
+                      <span className="break-words">{o.comment}</span>
                     </p>
                   ) : (
                     <p className="text-xs text-slate-500 italic">
